@@ -61,14 +61,6 @@ class BaseDataset(Dataset):
         data_dict = self._index[ind]
         mix_wav_path = data_dict["mix_wav_path"]
         mix_audio = self.load_audio(mix_wav_path)
-        """
-        "mix_wav_path": str(mix_wav_path.absolute().resolve()),
-        "s1_wav_path": s1_wav_path,
-        "s2_wav_path": s2_wav_path,
-        "s1_video_path": s1_video_path,
-        "s2_video_path": s2_video_path,
-        "audio_len": length,
-        """
         s1_audio = None
         s2_audio = None
         s1_video = None
