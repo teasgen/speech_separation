@@ -3,6 +3,7 @@ import random
 from typing import List
 
 import torch
+import torchaudio
 from torch.utils.data import Dataset
 
 logger = logging.getLogger(__name__)
@@ -18,7 +19,7 @@ class BaseDataset(Dataset):
     """
 
     def __init__(
-        self, index, limit=None, shuffle_index=False, instance_transforms=None
+        self, index, limit=None, target_sr=16000, shuffle_index=False, instance_transforms=None
     ):
         """
         Args:
@@ -27,6 +28,7 @@ class BaseDataset(Dataset):
                 such as label and object path.
             limit (int | None): if not None, limit the total number of elements
                 in the dataset to 'limit' elements.
+            target_sr (int): supported sample rate.
             shuffle_index (bool): if True, shuffle the index. Uses python
                 random package with seed 42.
             instance_transforms (dict[Callable] | None): transforms that
@@ -34,6 +36,7 @@ class BaseDataset(Dataset):
                 tensor name.
         """
         self._assert_index_is_valid(index)
+        self.target_sr = target_sr
 
         index = self._shuffle_and_limit_index(index, limit, shuffle_index)
         self._index: List[dict] = index
@@ -56,14 +59,81 @@ class BaseDataset(Dataset):
                 (a single dataset element).
         """
         data_dict = self._index[ind]
-        data_path = data_dict["path"]
-        data_object = self.load_object(data_path)
-        data_label = data_dict["label"]
+        mix_wav_path = data_dict["mix_wav_path"]
+        mix_audio = self.load_audio(mix_wav_path)
+        s1_audio = None
+        s2_audio = None
+        s1_video = None
+        s2_video = None
 
-        instance_data = {"data_object": data_object, "labels": data_label}
-        instance_data = self.preprocess_data(instance_data)
+        if data_dict["s1_wav_path"] is not None:
+            s1_wav_path = data_dict["s1_wav_path"]
+            s1_audio = self.load_audio(s1_wav_path)
+
+            s2_wav_path = data_dict["s2_wav_path"]
+            s2_audio = self.load_audio(s2_wav_path)
+
+        if data_dict["s1_video_path"] is not None:
+            s1_video_path = data_dict["s1_video_path"]
+            s1_video = self.load_video(s1_video_path)
+
+            s2_video_path = data_dict["s2_video_path"]
+            s2_video = self.load_video(s2_video_path)
+
+        instance_data = {
+            "mix": mix_audio,
+            "s1": s1_audio,
+            "s2": s2_audio,
+            "s1_video": s1_video,
+            "s2_video": s2_video,
+            "audio_path": mix_wav_path,
+        }
+        # apply WAV augs before getting spec
+        instance_data = self.preprocess_data(instance_data, single_key="mix")
+
+        mix_spectrogram = self.get_spectrogram(mix_audio)
+        instance_data.update({"mix_spectrogram": mix_spectrogram})
+
+        s1_spectrogram = self.get_spectrogram(mix_audio)
+        instance_data.update({"s1_spectrogram": s1_spectrogram})
+
+        s2_spectrogram = self.get_spectrogram(mix_audio)
+        instance_data.update({"s2_spectrogram": s2_spectrogram})
+
+        # exclude WAV augs for prevending double augmentations
+        instance_data = self.preprocess_data(instance_data, special_keys=["get_spectrogram", "mix"])
 
         return instance_data
+
+    def __len__(self):
+        """
+        Get length of the dataset (length of the index).
+        """
+        return len(self._index)
+
+    def load_audio(self, path):
+        audio_tensor, sr = torchaudio.load(path)
+        audio_tensor = audio_tensor[0:1, :]  # remove all channels but the first
+        target_sr = self.target_sr
+        if sr != target_sr:
+            audio_tensor = torchaudio.functional.resample(audio_tensor, sr, target_sr)
+        return audio_tensor
+    
+    def load_video(self, path):
+        # TODO: load npz
+        pass
+
+    def get_spectrogram(self, audio):
+        """
+        Special instance transform with a special key to
+        get spectrogram from audio.
+
+        Args:
+            audio (Tensor): original audio.
+        Returns:
+            spectrogram (Tensor): spectrogram for the audio.
+        """
+        return torch.log(self.instance_transforms["get_spectrogram"](audio).clamp(1e-5))
 
     def __len__(self):
         """
@@ -83,7 +153,8 @@ class BaseDataset(Dataset):
         data_object = torch.load(path)
         return data_object
 
-    def preprocess_data(self, instance_data):
+
+    def preprocess_data(self, instance_data, special_keys=["get_spectrogram"], single_key=None):
         """
         Preprocess data with instance transforms.
 
@@ -92,16 +163,26 @@ class BaseDataset(Dataset):
         Args:
             instance_data (dict): dict, containing instance
                 (a single dataset element).
+            single_key: optional[str]: if set modifies only this key
         Returns:
             instance_data (dict): dict, containing instance
                 (a single dataset element) (possibly transformed via
                 instance transform).
         """
-        if self.instance_transforms is not None:
-            for transform_name in self.instance_transforms.keys():
-                instance_data[transform_name] = self.instance_transforms[
-                    transform_name
-                ](instance_data[transform_name])
+        if self.instance_transforms is None:
+            return instance_data
+
+        if single_key is not None:
+            if single_key in self.instance_transforms: # eg train mode
+                instance_data[single_key] = self.instance_transforms[single_key](instance_data[single_key])
+            return instance_data
+
+        for transform_name in self.instance_transforms.keys():
+            if transform_name in special_keys:
+                continue  # skip special key
+            instance_data[transform_name] = self.instance_transforms[
+                transform_name
+            ](instance_data[transform_name])
         return instance_data
 
     @staticmethod
@@ -139,12 +220,8 @@ class BaseDataset(Dataset):
                 such as label and object path.
         """
         for entry in index:
-            assert "path" in entry, (
-                "Each dataset item should include field 'path'" " - path to audio file."
-            )
-            assert "label" in entry, (
-                "Each dataset item should include field 'label'"
-                " - object ground-truth label."
+            assert "mix_wav_path" in entry, (
+                "Each dataset item should include field 'mix_wav_path'" " - path to mix audio file."
             )
 
     @staticmethod

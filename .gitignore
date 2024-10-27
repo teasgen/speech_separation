@@ -101,6 +101,7 @@ ENV/
 .mypy_cache/
 
 # input data, saved log, checkpoints, hydra outputs
+dla_dataset/
 data/
 input/
 saved/
@@ -112,3 +113,9 @@ outputs/
 .vscode/
 .idea/
 __MACOSX/
+
+# checkpoints
+*.pt
+
+# notebooks
+*.ipynb
