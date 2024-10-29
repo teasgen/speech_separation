@@ -14,6 +14,7 @@ warnings.filterwarnings("ignore", category=UserWarning)
 
 @hydra.main(version_base=None, config_path="src/configs", config_name="baseline")
 def main(config):
+    print("ENTRED MAIN")
     """
     Main script for training. Instantiates the model, optimizer, scheduler,
     metrics, logger, writer, and dataloaders. Runs Trainer to train and
