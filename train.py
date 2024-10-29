@@ -14,7 +14,6 @@ warnings.filterwarnings("ignore", category=UserWarning)
 
 @hydra.main(version_base=None, config_path="src/configs", config_name="baseline")
 def main(config):
-    print("ENTRED MAIN")
     """
     Main script for training. Instantiates the model, optimizer, scheduler,
     metrics, logger, writer, and dataloaders. Runs Trainer to train and
@@ -23,11 +22,13 @@ def main(config):
     Args:
         config (DictConfig): hydra experiment config.
     """
+    print("ENTRED MAIN")
     set_random_seed(config.trainer.seed)
 
     project_config = OmegaConf.to_container(config)
     logger = setup_saving_and_logging(config)
     writer = instantiate(config.writer, logger, project_config)
+    print("INSTANTIATED WRITER")
 
     if config.trainer.device == "auto":
         device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -37,10 +38,11 @@ def main(config):
     # setup data_loader instances
     # batch_transforms should be put on device
     dataloaders, batch_transforms = get_dataloaders(config, device)
+    print("INSTANTIATED DATALOADERS")
 
     # build model architecture, then print to console
     model = instantiate(config.model).to(device)
-    print(model)
+    print("INSTANTIATED MODEL")
     logger.info(model)
 
     # get function handles of loss and metrics
