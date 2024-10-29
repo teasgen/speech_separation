@@ -39,6 +39,7 @@ def main(config):
 
     # build model architecture, then print to console
     model = instantiate(config.model).to(device)
+    print(model)
     logger.info(model)
 
     # get function handles of loss and metrics

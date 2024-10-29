@@ -1,12 +1,12 @@
 train:
-  limit: 1
+  limit: 10
   _target_: src.datasets.SSDataset
   part: "train"
   audio_dir: /kaggle/input/dla_dataset/audio
   video_dir: /kaggle/input/dla_dataset/mouths
   instance_transforms: ${transforms.instance_transforms.train}
 val:
-  limit: 1
+  limit: 10
   _target_: src.datasets.SSDataset
   part: "val"
   audio_dir: /kaggle/input/dla_dataset/audio
