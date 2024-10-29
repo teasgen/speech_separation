@@ -10,13 +10,6 @@ from src.utils.io_utils import ROOT_PATH, read_json, write_json
 
 
 class SSDataset(BaseDataset):
-    """
-    Example of a nested dataset class to show basic structure.
-
-    Uses random vectors as objects and random integers between
-    0 and n_classes-1 as labels.
-    """
-
     def __init__(
         self, part="train", audio_dir=None, video_dir=None, *args, **kwargs
     ):
@@ -28,7 +21,7 @@ class SSDataset(BaseDataset):
             self._audio_dir = ROOT_PATH / "audio"
         else:
             self._audio_dir = Path(audio_dir)
-        if audio_dir is None:
+        if video_dir is None:
             self._video_dir = ROOT_PATH / "mouth"
         else:
             self._video_dir = Path(video_dir)

@@ -22,29 +22,25 @@ def main(config):
     Args:
         config (DictConfig): hydra experiment config.
     """
-    print("ENTRED MAIN")
     set_random_seed(config.trainer.seed)
 
     project_config = OmegaConf.to_container(config)
     logger = setup_saving_and_logging(config)
     writer = instantiate(config.writer, logger, project_config)
-    print("INSTANTIATED WRITER")
 
     if config.trainer.device == "auto":
         device = "cuda" if torch.cuda.is_available() else "cpu"
     else:
         device = config.trainer.device
     
-    print(f"DEVICE: {device}")
+    print(f"Device: {device}")
 
     # setup data_loader instances
     # batch_transforms should be put on device
     dataloaders, batch_transforms = get_dataloaders(config, device)
-    print("INSTANTIATED DATALOADERS")
 
     # build model architecture, then print to console
     model = instantiate(config.model).to(device)
-    print("INSTANTIATED MODEL")
     logger.info(model)
 
     # get function handles of loss and metrics
