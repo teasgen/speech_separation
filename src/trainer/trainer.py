@@ -72,8 +72,10 @@ class Trainer(BaseTrainer):
 
         # logging scheme might be different for different partitions
         if mode == "train":  # the method is called only every self.log_step steps
+            # TODO: add logging
             # Log Stuff
             pass
         else:
             # Log Stuff
+            # TODO: add logging
             pass
