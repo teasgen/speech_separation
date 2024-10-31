@@ -125,3 +125,4 @@ __MACOSX/
 
 # pth models
 *.pth
+*.DS_Store
