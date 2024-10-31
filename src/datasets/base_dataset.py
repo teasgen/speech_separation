@@ -94,10 +94,10 @@ class BaseDataset(Dataset):
         mix_spectrogram = self.get_spectrogram(mix_audio)
         instance_data.update({"mix_spectrogram": mix_spectrogram})
 
-        s1_spectrogram = self.get_spectrogram(mix_audio)
+        s1_spectrogram = self.get_spectrogram(s1_audio)
         instance_data.update({"s1_spectrogram": s1_spectrogram})
 
-        s2_spectrogram = self.get_spectrogram(mix_audio)
+        s2_spectrogram = self.get_spectrogram(s2_audio)
         instance_data.update({"s2_spectrogram": s2_spectrogram})
 
         # exclude WAV augs for prevending double augmentations
