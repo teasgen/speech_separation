@@ -13,6 +13,10 @@ from omegaconf import OmegaConf
 from src.logger.logger import setup_logging
 from src.utils.io_utils import ROOT_PATH
 
+from lipreader.lipreading.utils import load_model, load_json
+from lipreader.lipreading.model import Lipreading
+from lipreader.lipreading.dataloaders import get_preprocessing_pipelines
+
 
 def set_worker_seed(worker_id):
     """
@@ -160,3 +164,33 @@ def setup_saving_and_logging(config):
     logger.setLevel(logging.DEBUG)
 
     return logger
+
+
+def init_lipreader(config, path):
+    args_loaded = load_json(config)
+
+    #defaults to lrw_snv1x_tcn1x
+    tcn_options = {
+        'num_layers': args_loaded.get('tcn_num_layers', 4),
+        'kernel_size': args_loaded.get('tcn_kernel_size', [3]),
+        'dropout': args_loaded.get('tcn_dropout', 0.2),
+        'dwpw': args_loaded.get('tcn_dwpw', False),
+        'width_mult': args_loaded.get('tcn_width_mult', 1),
+    }
+
+    lipreader = Lipreading(
+        modality="video",
+        num_classes=500,
+        backbone_type=args_loaded['backbone_type'],
+        width_mult=args_loaded['width_mult'],
+        relu_type=args_loaded['relu_type'],
+        tcn_options=tcn_options,
+        use_boundary=args_loaded.get("use_boundary", False),
+        extract_feats=True
+    )
+
+    return load_model(
+        load_path=path,
+        model=lipreader,
+        allow_size_mismatch=True
+    )
