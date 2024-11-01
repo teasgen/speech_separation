@@ -3,6 +3,7 @@ import random
 from typing import List
 
 import torch
+import numpy as np
 import torchaudio
 from torch.utils.data import Dataset
 
@@ -120,8 +121,8 @@ class BaseDataset(Dataset):
         return audio_tensor
     
     def load_video(self, path):
-        # TODO: load npz
-        pass
+        data = np.load(path)
+        return data["data"]
 
     def get_spectrogram(self, audio):
         """

@@ -122,3 +122,6 @@ __MACOSX/
 
 #DS store
 *.DS_Store
+
+# pth models
+*.pth
