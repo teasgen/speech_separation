@@ -15,6 +15,9 @@ class SSDatasetKaggle(BaseDataset):
         Args:
             part (str): partition name
         """
+        #TODO: REMOVE AFTER DEBUG
+        print(f"ROOT PATH: {ROOT_PATH}")
+        print(f"AUDIO_DIR: {ROOT_PATH / 'audio'}")
         if audio_dir is None:
             self._audio_dir = ROOT_PATH / "audio"
         else:
