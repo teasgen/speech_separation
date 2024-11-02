@@ -1,5 +1,5 @@
 defaults:
-  - model: voicefilter
+  - model: voicefilter_kaggle
   - writer: wandb
   - metrics: ss
   - datasets: ss_dataset_kaggle_onebatchtest
