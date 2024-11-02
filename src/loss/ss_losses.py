@@ -107,3 +107,15 @@ class SiSNRWavLoss(BaseSSLoss):
 
     def forward(self, s1_pred: torch.Tensor, s2_pred: torch.Tensor, s1: torch.Tensor, s2: torch.Tensor, **batch):
         return super().forward(s1_pred, s2_pred, s1, s2)
+    def forward(
+        self,
+        s1_pred: torch.Tensor,
+        s2_pred: torch.Tensor,
+        s1: torch.Tensor,
+        s2: torch.Tensor,
+        **batch
+    ):
+        return super().forward(s1_pred, s2_pred, s1, s2)
+
+
+# TODO: add custom loss for VoiceFilter (?)
