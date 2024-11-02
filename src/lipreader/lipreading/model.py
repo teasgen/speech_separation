@@ -2,12 +2,12 @@ import torch
 import torch.nn as nn
 import math
 import numpy as np
-from lipreading.models.resnet import ResNet, BasicBlock
-from lipreading.models.resnet1D import ResNet1D, BasicBlock1D
-from lipreading.models.shufflenetv2 import ShuffleNetV2
-from lipreading.models.tcn import MultibranchTemporalConvNet, TemporalConvNet
-from lipreading.models.densetcn import DenseTemporalConvNet
-from lipreading.models.swish import Swish
+from src.lipreader.lipreading.models.resnet import ResNet, BasicBlock
+from src.lipreader.lipreading.models.resnet1D import ResNet1D, BasicBlock1D
+from src.lipreader.lipreading.models.shufflenetv2 import ShuffleNetV2
+from src.lipreader.lipreading.models.tcn import MultibranchTemporalConvNet, TemporalConvNet
+from src.lipreader.lipreading.models.densetcn import DenseTemporalConvNet
+from src.lipreader.lipreading.models.swish import Swish
 
 
 # -- auxiliary functions

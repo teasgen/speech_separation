@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch.nn.utils import weight_norm
 import pdb
-from lipreading.models.swish import Swish
+from src.lipreader.lipreading.models.swish import Swish
 
 
 """Implements Temporal Convolutional Network (TCN)

@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from lipreading.models.swish import Swish
+from src.lipreader.lipreading.models.swish import Swish
 
 def _average_batch( x, lengths):
     return torch.stack( [torch.mean( x[index][:,0:i], 1 ) for index, i in enumerate(lengths)],0 )

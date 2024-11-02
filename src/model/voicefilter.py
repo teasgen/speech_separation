@@ -2,9 +2,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from lipreader.lipreading.utils import load_model, load_json
-from lipreader.lipreading.model import Lipreading
-from lipreader.lipreading.dataloaders import get_preprocessing_pipelines
+from src.lipreader.lipreading.utils import load_model, load_json
+from src.lipreader.lipreading.model import Lipreading
+from src.lipreader.lipreading.dataloaders import get_preprocessing_pipelines
 
 from src.utils.init_utils import init_lipreader
 
@@ -12,9 +12,8 @@ from src.utils.init_utils import init_lipreader
 class VoiceFilter(nn.Module):
     def __init__(
             self,
-            lipreader_path: str = "lrw_snv1x_tcn1x.pth",
-            lipreader_config: str = "configs/lrw_snv1x_tcn1x.json",
-            max_audio_len: int = 32000
+            lipreader_path: str,
+            lipreader_config: str
     ):
         super(VoiceFilter, self).__init__()
 
@@ -31,59 +30,67 @@ class VoiceFilter(nn.Module):
         # fc to obtain dvector
         self.fc_dvector = nn.Linear(256 * 2, 256)  # *2 bidirectional gru
 
-        # cnn for mix spec
+        # cnn for mix spec, parameters from paper
+        # 8 cnn layers
         self.cnn_layers = nn.Sequential(
-            nn.Conv2d(1, 64, (1, 7), dilation=(1, 1)), nn.ReLU(),
-            nn.Conv2d(64, 64, (7, 1), dilation=(1, 1)), nn.ReLU(),
-            nn.Conv2d(64, 64, (5, 5), dilation=(1, 1)), nn.ReLU(),
-            nn.Conv2d(64, 64, (5, 5), dilation=(2, 1)), nn.ReLU(),
-            nn.Conv2d(64, 64, (5, 5), dilation=(4, 1)), nn.ReLU(),
-            nn.Conv2d(64, 64, (5, 5), dilation=(8, 1)), nn.ReLU(),
-            nn.Conv2d(64, 64, (5, 5), dilation=(16, 1)), nn.ReLU(),
-            nn.Conv2d(64, 8, (1, 1), dilation=(1, 1)), nn.ReLU()
+            nn.ZeroPad2d((3, 3, 0, 0)), nn.Conv2d(1, 64, (1, 7), dilation=(1, 1)), nn.BatchNorm2d(64), nn.ReLU(),
+            nn.ZeroPad2d((0, 0, 3, 3)), nn.Conv2d(64, 64, (7, 1), dilation=(1, 1)), nn.BatchNorm2d(64), nn.ReLU(),
+            nn.ZeroPad2d((2, 2, 2, 2)), nn.Conv2d(64, 64, (5, 5), dilation=(1, 1)), nn.BatchNorm2d(64), nn.ReLU(),
+            nn.ZeroPad2d((2, 2, 4, 4)), nn.Conv2d(64, 64, (5, 5), dilation=(2, 1)), nn.BatchNorm2d(64), nn.ReLU(),
+            nn.ZeroPad2d((2, 2, 8, 8)), nn.Conv2d(64, 64, (5, 5), dilation=(4, 1)), nn.BatchNorm2d(64), nn.ReLU(),
+            nn.ZeroPad2d((2, 2, 16, 16)), nn.Conv2d(64, 64, (5, 5), dilation=(8, 1)), nn.BatchNorm2d(64), nn.ReLU(),
+            nn.ZeroPad2d((2, 2, 32, 32)), nn.Conv2d(64, 64, (5, 5), dilation=(16, 1)), nn.BatchNorm2d(64), nn.ReLU(),
+            nn.Conv2d(64, 8, (1, 1), dilation=(1, 1)), nn.BatchNorm2d(8)
         )
 
         # lstm for mask
-        self.lstm = nn.LSTM(input_size=8 + 256, hidden_size=400, batch_first=True)
+        self.lstm = nn.LSTM(input_size=8*128 + 256, hidden_size=400, batch_first=True)
 
         # fc for output
         self.fc1 = nn.Linear(400, 600)
-        self.fc2 = nn.Linear(600, max_audio_len) 
+        self.fc2 = nn.Linear(600, 128) #TODO: refactor to generalize - 128 is the Height dimension in spectrogram
 
-    def forward(self, mix_spectrogram, s1_video: np.ndarray, s2_video: np.ndarray):
-        s1_data = self.preprocessing_func(s1_video)
-        s2_data = self.preprocessing_func(s2_video)
+    def forward(self, mix_spectrogram, s1_video: torch.tensor, s2_video: torch.tensor, **batch):
+        # s1_video.size() = [B, T, H, W] = (10, 50, 96, 96)
+        s1_data = torch.stack([self.preprocessing_func(video) for video in s1_video], dim=0)
+        s2_data = torch.stack([self.preprocessing_func(video) for video in s2_video], dim=0)
+        # preprocessing_func просто обрезает H и W и нормирует (см. код)
+        # s1_data.size() = [B, T, H', W'] = [10, 50, 88, 88]
 
-        s1_embedding = self.lipreader(torch.FloatTensor(s1_data)[None, None, :, :, :], lengths=[s1_data.shape[0]])  # 1 x T x C = (50, 1024)
-        s2_embedding = self.lipreader(torch.FloatTensor(s2_data)[None, None, :, :, :], lengths=[s2_data.shape[0]])  # 1 x T x C = (50, 1024)
+        # s1_data.unsqueeze(1).size() = [B, 1, T, H', W'] = [10, 1, 50, 88, 88]
+        s1_embedding = self.lipreader(s1_data.unsqueeze(1), lengths=[50])
+        s2_embedding = self.lipreader(s2_data.unsqueeze(1), lengths=[50])
+        # s1_embedding.size() = [B, T, 1024] = [10, 50, 1024]
 
         # d-vectors
         s1_gru, _ = self.gru(s1_embedding)
         s2_gru, _ = self.gru(s2_embedding)
+        # s1_gru.size() = [B, T, 512]
         
         s1_dvector = self.fc_dvector(s1_gru[:, -1, :])
         s2_dvector = self.fc_dvector(s2_gru[:, -1, :])
+        # s1_dvector.size() = [B, 256] = [10, 256]
 
-        mix_spectrogram = mix_spectrogram.unsqueeze(1)
-        cnn_out = self.cnn_layers(mix_spectrogram)
+        # mix_spectrogram.size() = [B, H, W] = [10, 128, 161]
+        x = mix_spectrogram.unsqueeze(1)
+        x = self.cnn_layers(x)
+        B, C, H, W = x.shape
 
-        # concatenate dvectors to cnn out at each time frame
-        cnn_out = cnn_out.squeeze(2).permute(0, 2, 1)  # (B, T, 8)
-        s1_cnn_lstm_input = torch.cat((cnn_out, s1_dvector.expand_as(cnn_out)), dim=-1)
-        s2_cnn_lstm_input = torch.cat((cnn_out, s2_dvector.expand_as(cnn_out)), dim=-1)
+        x = x.permute(0, 3, 2, 1).contiguous()  # [B, W, H, C] = [10, 161, 128, 8]
+        x = x.view(B, W, -1) # [B, W, H * C]
 
         # making masks
-        s1_lstm_out, _ = self.lstm(s1_cnn_lstm_input)
-        s2_lstm_out, _ = self.lstm(s2_cnn_lstm_input)
+        outputs = {}
+        for i, dvector in enumerate([s1_dvector, s2_dvector], start=1):
+            dvector_expanded = dvector.unsqueeze(1).expand(-1, x.size(1), -1)  # [B, W, 256] = [10, 161, 256]
+            concat = torch.cat((x, dvector_expanded), dim=2)  # [B, W, H*C + 256] = [10, 161, 1280]
+            lstm_out, _ = self.lstm(concat) # [B, W, 400] = [10, 161, 400]
+            mask = self.fc2(self.fc1(lstm_out)) # [B, W, H] = [10, 161, 128]
+            mask = mask.permute(0, 2, 1) # [B, H, W] = [10, 128, 161]
+            outputs[f"s{i}_pred"] = mask * mix_spectrogram # [B, H, W] = [10, 128, 161]
+            # outputs[f"s{i}_mask"] = mask # TODO: maybe log mask (?)
 
-        s1_fc_out = self.fc2(nn.ReLU(self.fc1(s1_lstm_out)))
-        s2_fc_out = self.fc2(nn.ReLU(self.fc1(s2_lstm_out)))
-
-        # apply masks
-        s1_pred = s1_fc_out * mix_spectrogram
-        s2_pred = s2_fc_out * mix_spectrogram
-
-        return {"s1_pred": s1_pred, "s2_pred": s2_pred}
+        return outputs
 
     def __str__(self):
         """

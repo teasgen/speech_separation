@@ -1,7 +1,7 @@
 import torch
 import numpy as np
-from lipreading.preprocess import *
-from lipreading.dataset import MyDataset, pad_packed_collate
+from src.lipreader.lipreading.preprocess import *
+from src.lipreader.lipreading.dataset import MyDataset, pad_packed_collate
 
 
 def get_preprocessing_pipelines(modality):

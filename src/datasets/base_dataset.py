@@ -122,7 +122,7 @@ class BaseDataset(Dataset):
     
     def load_video(self, path):
         data = np.load(path)
-        return data["data"]
+        return torch.FloatTensor(data["data"]).unsqueeze(0)
 
     def get_spectrogram(self, audio):
         """

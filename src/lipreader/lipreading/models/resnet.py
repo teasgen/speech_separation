@@ -3,7 +3,7 @@ import math
 import torch.nn as nn
 import pdb
 
-from lipreading.models.swish import Swish
+from src.lipreader.lipreading.models.swish import Swish
 
 def conv3x3(in_planes, out_planes, stride=1):
     return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride,

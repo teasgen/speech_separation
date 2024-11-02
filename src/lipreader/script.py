@@ -1,8 +1,8 @@
 import numpy as np
 import torch
-from lipreading.utils import load_model, save2npz, load_json
-from lipreading.model import Lipreading
-from lipreading.dataloaders import get_preprocessing_pipelines
+from src.lipreader.lipreading.utils import load_model, save2npz, load_json
+from src.lipreader.lipreading.model import Lipreading
+from src.lipreader.lipreading.dataloaders import get_preprocessing_pipelines
 
 def extract_feats(model, mouth_patch_path):
     model.eval()

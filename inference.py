@@ -25,9 +25,15 @@ def main(config):
     set_random_seed(config.inferencer.seed)
 
     if config.inferencer.device == "auto":
-        device = "cuda" if torch.cuda.is_available() else "cpu"
+        if torch.cuda.is_available():
+            device = "cuda"
+        elif torch.backends.mps.is_available():
+            device = "mps"
+        else:
+            device = "cpu"
     else:
         device = config.inferencer.device
+
 
     # setup data_loader instances
     # batch_transforms should be put on device

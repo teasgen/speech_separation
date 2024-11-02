@@ -13,9 +13,9 @@ from omegaconf import OmegaConf
 from src.logger.logger import setup_logging
 from src.utils.io_utils import ROOT_PATH
 
-from lipreader.lipreading.utils import load_model, load_json
-from lipreader.lipreading.model import Lipreading
-from lipreader.lipreading.dataloaders import get_preprocessing_pipelines
+from src.lipreader.lipreading.utils import load_model, load_json
+from src.lipreader.lipreading.model import Lipreading
+from src.lipreader.lipreading.dataloaders import get_preprocessing_pipelines
 
 
 def set_worker_seed(worker_id):
