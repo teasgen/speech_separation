@@ -2,8 +2,8 @@ import logging
 import random
 from typing import List
 
-import torch
 import numpy as np
+import torch
 import torchaudio
 from torch.utils.data import Dataset
 
@@ -20,7 +20,12 @@ class BaseDataset(Dataset):
     """
 
     def __init__(
-        self, index, limit=None, target_sr=16000, shuffle_index=False, instance_transforms=None
+        self,
+        index,
+        limit=None,
+        target_sr=16000,
+        shuffle_index=False,
+        instance_transforms=None,
     ):
         """
         Args:
@@ -102,7 +107,9 @@ class BaseDataset(Dataset):
         instance_data.update({"s2_spectrogram": s2_spectrogram})
 
         # exclude WAV augs for prevending double augmentations
-        instance_data = self.preprocess_data(instance_data, special_keys=["get_spectrogram", "mix"])
+        instance_data = self.preprocess_data(
+            instance_data, special_keys=["get_spectrogram", "mix"]
+        )
 
         return instance_data
 
@@ -119,7 +126,7 @@ class BaseDataset(Dataset):
         if sr != target_sr:
             audio_tensor = torchaudio.functional.resample(audio_tensor, sr, target_sr)
         return audio_tensor
-    
+
     def load_video(self, path):
         data = np.load(path)
         return torch.FloatTensor(data["data"]).unsqueeze(0)
@@ -154,8 +161,9 @@ class BaseDataset(Dataset):
         data_object = torch.load(path)
         return data_object
 
-
-    def preprocess_data(self, instance_data, special_keys=["get_spectrogram"], single_key=None):
+    def preprocess_data(
+        self, instance_data, special_keys=["get_spectrogram"], single_key=None
+    ):
         """
         Preprocess data with instance transforms.
 
@@ -174,16 +182,18 @@ class BaseDataset(Dataset):
             return instance_data
 
         if single_key is not None:
-            if single_key in self.instance_transforms: # eg train mode
-                instance_data[single_key] = self.instance_transforms[single_key](instance_data[single_key])
+            if single_key in self.instance_transforms:  # eg train mode
+                instance_data[single_key] = self.instance_transforms[single_key](
+                    instance_data[single_key]
+                )
             return instance_data
 
         for transform_name in self.instance_transforms.keys():
             if transform_name in special_keys:
                 continue  # skip special key
-            instance_data[transform_name] = self.instance_transforms[
-                transform_name
-            ](instance_data[transform_name])
+            instance_data[transform_name] = self.instance_transforms[transform_name](
+                instance_data[transform_name]
+            )
         return instance_data
 
     @staticmethod
@@ -222,7 +232,8 @@ class BaseDataset(Dataset):
         """
         for entry in index:
             assert "mix_wav_path" in entry, (
-                "Each dataset item should include field 'mix_wav_path'" " - path to mix audio file."
+                "Each dataset item should include field 'mix_wav_path'"
+                " - path to mix audio file."
             )
 
     @staticmethod

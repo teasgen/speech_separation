@@ -35,8 +35,8 @@ class SSBaselineModel(nn.Module):
         )
 
     def forward(self, mix_spectrogram, mix, **batch):
-        common_features = self.common_model(mix_spectrogram.transpose(1, 2)) # B, T, C
-        common_features = common_features.mean(1) # B, C
+        common_features = self.common_model(mix_spectrogram.transpose(1, 2))  # B, T, C
+        common_features = common_features.mean(1)  # B, C
         mask_1 = self.mask_1(common_features)
         mask_2 = self.mask_2(common_features)
         s1_pred = mix * mask_1

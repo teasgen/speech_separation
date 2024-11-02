@@ -1,18 +1,16 @@
-from tqdm.auto import tqdm
+import json
 import os
 from pathlib import Path
-import json
 
 import torchaudio
+from tqdm.auto import tqdm
 
 from src.datasets.base_dataset import BaseDataset
 from src.utils.io_utils import ROOT_PATH, read_json, write_json
 
 
 class SSDatasetKaggle(BaseDataset):
-    def __init__(
-        self, part="train", audio_dir=None, video_dir=None, *args, **kwargs
-    ):
+    def __init__(self, part="train", audio_dir=None, video_dir=None, *args, **kwargs):
         """
         Args:
             part (str): partition name
@@ -71,7 +69,7 @@ class SSDatasetKaggle(BaseDataset):
 
             t_info = torchaudio.info(str(mix_wav_path))
             length = t_info.num_frames / t_info.sample_rate
-            
+
             index.append(
                 {
                     "mix_wav_path": str(mix_wav_path.absolute().resolve()),

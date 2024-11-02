@@ -7,7 +7,14 @@ class BaseSSLoss(nn.Module):
         super().__init__()
         self.loss = loss
 
-    def forward(self, s1_pred: torch.Tensor, s2_pred: torch.Tensor, s1: torch.Tensor, s2: torch.Tensor, **batch):
+    def forward(
+        self,
+        s1_pred: torch.Tensor,
+        s2_pred: torch.Tensor,
+        s1: torch.Tensor,
+        s2: torch.Tensor,
+        **batch
+    ):
         """
         Applies PIT on self.loss
         """
@@ -24,21 +31,47 @@ class MSESpecLoss(BaseSSLoss):
         loss = nn.MSELoss()
         super().__init__(loss)
 
-    def forward(self, s1_pred: torch.Tensor, s2_pred: torch.Tensor, s1_spectrogram: torch.Tensor, s2_spectrogram: torch.Tensor, **batch):
+    def forward(
+        self,
+        s1_pred: torch.Tensor,
+        s2_pred: torch.Tensor,
+        s1_spectrogram: torch.Tensor,
+        s2_spectrogram: torch.Tensor,
+        **batch
+    ):
         return super().forward(s1_pred, s2_pred, s1_spectrogram, s2_spectrogram)
-    
+
+
 class MSEWavLoss(BaseSSLoss):
     def __init__(self):
         loss = nn.MSELoss()
         super().__init__(loss)
 
-    def forward(self, s1_pred: torch.Tensor, s2_pred: torch.Tensor, s1: torch.Tensor, s2: torch.Tensor, **batch):
+    def forward(
+        self,
+        s1_pred: torch.Tensor,
+        s2_pred: torch.Tensor,
+        s1: torch.Tensor,
+        s2: torch.Tensor,
+        **batch
+    ):
         return super().forward(s1_pred, s2_pred, s1, s2)
-    
+
+
 class MAEWavLoss(BaseSSLoss):
     def __init__(self):
         loss = nn.L1Loss()
         super().__init__(loss)
 
-    def forward(self, s1_pred: torch.Tensor, s2_pred: torch.Tensor, s1: torch.Tensor, s2: torch.Tensor, **batch):
+    def forward(
+        self,
+        s1_pred: torch.Tensor,
+        s2_pred: torch.Tensor,
+        s1: torch.Tensor,
+        s2: torch.Tensor,
+        **batch
+    ):
         return super().forward(s1_pred, s2_pred, s1, s2)
+
+
+# TODO: add custom loss for VoiceFilter (?)

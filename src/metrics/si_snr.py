@@ -1,5 +1,6 @@
-from src.metrics.base_metric import SS2BaseMetric
 from torchmetrics.audio import ScaleInvariantSignalNoiseRatio
+
+from src.metrics.base_metric import SS2BaseMetric
 
 
 class SISNRMetric(SS2BaseMetric):
