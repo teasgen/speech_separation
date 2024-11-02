@@ -1,7 +1,7 @@
 train:
   limit: 10
   _target_: src.datasets.SSDatasetKaggle
-  part: "train"
+  part: "val"
   audio_dir: /kaggle/input/dla_dataset/audio
   video_dir: /kaggle/input/dla_dataset/mouths
   instance_transforms: ${transforms.instance_transforms.train}

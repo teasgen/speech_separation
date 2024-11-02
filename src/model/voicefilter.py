@@ -62,6 +62,7 @@ class VoiceFilter(nn.Module):
             nn.Conv2d(64, 8, (1, 1), dilation=(1, 1)),
             nn.BatchNorm2d(8),
         )
+        # padding for size consistency
 
         # lstm for mask
         self.lstm = nn.LSTM(input_size=8 * 128 + 256, hidden_size=400, batch_first=True)

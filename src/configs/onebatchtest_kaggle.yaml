@@ -1,5 +1,5 @@
 defaults:
-  - model: baseline_ss_model
+  - model: voicefilter
   - writer: wandb
   - metrics: ss
   - datasets: ss_dataset_kaggle_onebatchtest
@@ -14,7 +14,7 @@ lr_scheduler:
   gamma: 0.9
   step_size: ${trainer.epoch_len}
 loss_function:
-  _target_: src.loss.MAEWavLoss
+  _target_: src.loss.MSESpecLoss
 trainer:
   log_step: 50
   n_epochs: 10
