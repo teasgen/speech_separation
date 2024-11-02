@@ -1,7 +1,7 @@
 defaults:
   - model: voicefilter_kaggle
   - writer: wandb
-  - metrics: ss
+  - metrics: ss_cuda
   - datasets: ss_dataset_kaggle_onebatchtest
   - dataloader: example
   - transforms: ss_full_spec
