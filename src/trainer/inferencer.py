@@ -95,83 +95,77 @@ class Inferencer(BaseTrainer):
         return part_logs
 
     def process_batch(self, batch_idx, batch, metrics, part):
-        """
-        Run batch through the model, compute metrics, and
-        save predictions to disk.
+            """
+            Run batch through the model, compute metrics, and
+            save predictions to disk for source separation.
 
-        Save directory is defined by save_path in the inference
-        config and current partition.
+            Args:
+                batch_idx (int): the index of the current batch.
+                batch (dict): dict-based batch containing the data from
+                    the dataloader.
+                metrics (MetricTracker): MetricTracker object that computes
+                    and aggregates the metrics.
+                part (str): name of the partition, used to define the saving
+                    directory.
+            Returns:
+                batch (dict): updated batch containing model outputs.
+            """
+            batch = self.move_batch_to_device(batch)
+            batch = self.transform_batch(batch)
 
-        Args:
-            batch_idx (int): the index of the current batch.
-            batch (dict): dict-based batch containing the data from
-                the dataloader.
-            metrics (MetricTracker): MetricTracker object that computes
-                and aggregates the metrics. The metrics depend on the type
-                of the partition (train or inference).
-            part (str): name of the partition. Used to define proper saving
-                directory.
-        Returns:
-            batch (dict): dict-based batch containing the data from
-                the dataloader (possibly transformed via batch transform)
-                and model outputs.
-        """
-        batch = self.move_batch_to_device(batch)
-        batch = self.transform_batch(batch)  # transform batch on device -- faster
+            outputs = self.model(mix_spectrogram=batch["mix_spectrogram"], mix=batch["mix"])
+            batch.update(outputs)
 
-        outputs = self.model(**batch)
-        batch.update(outputs)
+            if metrics is not None:
+                for met in self.metrics["inference"]:
+                    metrics.update(met.name, met(**batch))
 
-        # TODO: refactor so that code below depends on model (?)
-        if "s1_spec_pred" in batch:
-            for i in range(1, 3):
-                # inverse to what was done in get_magnitude
-                # TODO: make a separate function/
-                spec = (torch.clamp(batch[f"s{i}_spec_pred"], 0.0, 1.0) - 1.0) * 100.0 + 20.0
-                spec = 10.0 ** (spec * 0.05)
-                complex_spectrum = torch.polar(
-                    spec,
-                    batch["mix_phase"]
-                )
+            # TODO: refactor so that code below depends on model (?)
+            if "s1_spec_pred" in batch:
+                for i in range(1, 3):
+                    # inverse to what was done in get_magnitude
+                    # TODO: make a separate function/
+                    spec = (torch.clamp(batch[f"s{i}_spec_pred"], 0.0, 1.0) - 1.0) * 100.0 + 20.0
+                    spec = 10.0 ** (spec * 0.05)
+                    complex_spectrum = torch.polar(
+                        spec,
+                        batch["mix_phase"]
+                    )
 
-                batch[f"s{i}_pred"] = torch.istft(
-                    complex_spectrum,
-                    n_fft=self.n_fft,
-                    hop_length=self.hop_length,
-                    win_length=self.n_fft,
-                    center=True,
-                    window=self.window
-                )
+                    batch[f"s{i}_pred"] = torch.istft(
+                        complex_spectrum,
+                        n_fft=self.n_fft,
+                        hop_length=self.hop_length,
+                        win_length=self.n_fft,
+                        center=True,
+                        window=self.window
+                    )
 
-        if metrics is not None:
-            for met in self.metrics["inference"]:
-                metrics.update(met.name, met(**batch))
+            if metrics is not None:
+                for met in self.metrics["inference"]:
+                    metrics.update(met.name, met(**batch))
+                batch_size = batch["s1_pred"].shape[0]
+                current_id = batch_idx * batch_size
 
-        # Some saving logic. This is an example
-        # Use if you need to save predictions on disk
+                for i in range(batch_size):
+                    s1_pred = batch["s1_pred"][i].clone()
+                    s2_pred = batch["s2_pred"][i].clone()
+                    s1_true = batch["s1"][i].clone()
+                    s2_true = batch["s2"][i].clone()
 
-        batch_size = batch["logits"].shape[0]
-        current_id = batch_idx * batch_size
+                    output_id = current_id + i
 
-        for i in range(batch_size):
-            # clone because of
-            # https://github.com/pytorch/pytorch/issues/1995
-            logits = batch["logits"][i].clone()
-            label = batch["labels"][i].clone()
-            pred_label = logits.argmax(dim=-1)
+                    output = {
+                        "s1_pred": s1_pred,
+                        "s2_pred": s2_pred,
+                        "s1_true": s1_true,
+                        "s2_true": s2_true,
+                    }
 
-            output_id = current_id + i
+                    if self.save_path is not None:
+                        torch.save(output, self.save_path / part / f"output_{output_id}.pth")
 
-            output = {
-                "pred_label": pred_label,
-                "label": label,
-            }
-
-            if self.save_path is not None:
-                # you can use safetensors or other lib here
-                torch.save(output, self.save_path / part / f"output_{output_id}.pth")
-
-        return batch
+                return batch
 
     def _inference_part(self, part, dataloader):
         """

@@ -1,13 +1,13 @@
 defaults:
-  - model: baseline
-  - metrics: example
-  - datasets: example_eval # we do not want to run inference on training data
+  - model: baseline_ss_model
+  - metrics: ss
+  - datasets: ss_dataset
   - dataloader: example
-  - transforms: example
+  - transforms: ss_full_spec
   - _self_
 inferencer:
-  device_tensors: ["data_object", "labels"] # which tensors should be on device (ex. GPU)
+  device_tensors: ["mix_spectrogram", "s1_spectrogram", "s2_spectrogram", "mix", "s1", "s2"] # which tensors should be on device (ex. GPU)
   device: auto # device name or "auto"
   save_path: "example" # any name here, can be a dataset name
   seed: 1
-  from_pretrained: "saved/model_best.pth" # path to the pretrained model
+  from_pretrained: "/saved/model_best.pth" # path to the pretrained model
