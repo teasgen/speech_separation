@@ -170,7 +170,6 @@ class WandBWriter:
         if isinstance(audio, torch.Tensor):
             audio = audio.detach().cpu().numpy().T
         elif isinstance(audio, np.ndarray):
-            # If already a NumPy array, transpose if needed
             audio = audio.T
 
         self.wandb.log(
