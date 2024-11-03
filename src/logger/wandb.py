@@ -40,6 +40,8 @@ class WandBWriter:
         """
         try:
             import wandb
+            import os
+            os.environ["WANDB_HOST"] = "closed"
 
             wandb.login()
 
@@ -54,6 +56,7 @@ class WandBWriter:
                 id=self.run_id,
                 mode=mode,
                 save_code=kwargs.get("save_code", False),
+                settings=wandb.Settings(_disable_stats=True),
             )
             self.wandb = wandb
 
