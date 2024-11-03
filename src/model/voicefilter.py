@@ -99,6 +99,7 @@ class VoiceFilter(nn.Module):
         # s1_data.size() = [B, T, H', W'] = [10, 50, 88, 88]
 
         # s1_data.unsqueeze(1).size() = [B, 1, T, H', W'] = [10, 1, 50, 88, 88]
+        # TODO: is torch.no_grad() necessary?
         s1_embedding = self.lipreader(s1_data.unsqueeze(1), lengths=[50])
         s2_embedding = self.lipreader(s2_data.unsqueeze(1), lengths=[50])
         # TODO: merge two vectors, is it possible?..
