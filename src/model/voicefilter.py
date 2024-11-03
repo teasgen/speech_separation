@@ -9,11 +9,19 @@ from src.utils.init_utils import init_lipreader
 
 
 class VoiceFilter(nn.Module):
-    def __init__(self, lipreader_path: str, lipreader_config: str):
+    def __init__(
+            self,
+            input_size: int,
+            lipreader_path: str,
+            lipreader_config: str
+    ):
         super(VoiceFilter, self).__init__()
 
         self.lipreader = init_lipreader(lipreader_config, lipreader_path)
+        for param in self.lipreader.parameters():
+            param.requires_grad = False # to use a frozen lipreader
         self.lipreader.eval()
+
         self.preprocessing_func = get_preprocessing_pipelines(modality="video")["test"]
 
         # gru layer for lip embeddings
@@ -65,16 +73,16 @@ class VoiceFilter(nn.Module):
         # padding for size consistency
 
         # lstm for mask
-        self.lstm = nn.LSTM(input_size=8 * 128 + 256, hidden_size=400, batch_first=True)
+        self.lstm = nn.LSTM(input_size=8 * input_size + 256, hidden_size=400, batch_first=True)
 
         # fc for output
         self.fc1 = nn.Linear(400, 600)
         self.fc2 = nn.Linear(
-            600, 128
-        )  # TODO: refactor to generalize - 128 is the Height dimension in spectrogram
+            600, input_size
+        )
 
     def forward(
-        self, mix_spectrogram, s1_video: torch.tensor, s2_video: torch.tensor, **batch
+        self, mix_magnitude, s1_video: torch.tensor, s2_video: torch.tensor, **batch
     ):
         # s1_video.size() = [B, T, H, W] = (10, 50, 96, 96)
         s1_data = torch.stack(
@@ -87,8 +95,11 @@ class VoiceFilter(nn.Module):
         # s1_data.size() = [B, T, H', W'] = [10, 50, 88, 88]
 
         # s1_data.unsqueeze(1).size() = [B, 1, T, H', W'] = [10, 1, 50, 88, 88]
+        # TODO: is torch.no_grad() necessary?
         s1_embedding = self.lipreader(s1_data.unsqueeze(1), lengths=[50])
         s2_embedding = self.lipreader(s2_data.unsqueeze(1), lengths=[50])
+        # TODO: merge two vectors, is it possible?..
+        # считать lipreader от конкатенации быстрее?
         # s1_embedding.size() = [B, T, 1024] = [10, 50, 1024]
 
         # d-vectors
@@ -100,12 +111,12 @@ class VoiceFilter(nn.Module):
         s2_dvector = self.fc_dvector(s2_gru[:, -1, :])
         # s1_dvector.size() = [B, 256] = [10, 256]
 
-        # mix_spectrogram.size() = [B, H, W] = [10, 128, 161]
-        x = mix_spectrogram.unsqueeze(1)
+        # mix_magnitude.size() = [B, H, W] = [10, 201, 321]
+        x = mix_magnitude.unsqueeze(1)
         x = self.cnn_layers(x)
         B, C, H, W = x.shape
 
-        x = x.permute(0, 3, 2, 1).contiguous()  # [B, W, H, C] = [10, 161, 128, 8]
+        x = x.permute(0, 3, 2, 1).contiguous()  # [B, W, H, C] = [10, 321, 201, 8]
         x = x.view(B, W, -1)  # [B, W, H * C]
 
         # making masks
@@ -113,17 +124,22 @@ class VoiceFilter(nn.Module):
         for i, dvector in enumerate([s1_dvector, s2_dvector], start=1):
             dvector_expanded = dvector.unsqueeze(1).expand(
                 -1, x.size(1), -1
-            )  # [B, W, 256] = [10, 161, 256]
+            )  # [B, W, 256] = [10, 321, 256]
             concat = torch.cat(
                 (x, dvector_expanded), dim=2
-            )  # [B, W, H*C + 256] = [10, 161, 1280]
-            lstm_out, _ = self.lstm(concat)  # [B, W, 400] = [10, 161, 400]
-            mask = self.fc2(self.fc1(lstm_out))  # [B, W, H] = [10, 161, 128]
-            mask = mask.permute(0, 2, 1)  # [B, H, W] = [10, 128, 161]
-            outputs[f"s{i}_pred"] = mask * mix_spectrogram  # [B, H, W] = [10, 128, 161]
+            )  # [B, W, H*C + 256] = [10, 321, 1280]
+            lstm_out, _ = self.lstm(concat)  # [B, W, 400] = [10, 321, 400]
+            mask = self.fc2(self.fc1(lstm_out))  # [B, W, H] = [10, 321, 201]
+            mask = mask.permute(0, 2, 1)  # [B, H, W] = [10, 201, 321]
+            outputs[f"s{i}_magnitude_pred"] = mask * mix_magnitude  # [B, H, W] = [10, 201, 321]
             # outputs[f"s{i}_mask"] = mask # TODO: maybe log mask (?)
 
         return outputs
+    
+    def train(self, mode=True):
+        # keeping lipreader in eval mode
+        super(VoiceFilter, self).train(mode)
+        self.lipreader.eval()
 
     def __str__(self):
         """

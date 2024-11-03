@@ -15,6 +15,8 @@ def collate_fn(dataset_items: list[dict]):
     """
     pack_to_tensors_batch_keys = [
         "mix_spectrogram",
+        "mix_magnitude",
+        "mix_phase",
         "s1_spectrogram",
         "s2_spectrogram",
         "s1_video",

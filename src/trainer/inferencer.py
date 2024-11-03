@@ -122,6 +122,23 @@ class Inferencer(BaseTrainer):
         outputs = self.model(**batch)
         batch.update(outputs)
 
+        # TODO: refactor so that code below depends on model
+        if "s1_magnitude_pred" in batch:
+            for i in range(1, 3):
+                complex_spectrum = torch.polar(
+                    batch[f"s{i}_magnitude_pred"],
+                    batch["mix_phase"]
+                )
+                # TODO: refactor for arbitrary n_fft and hop_length
+                batch[f"s{i}_pred"] = torch.istft(
+                    complex_spectrum,
+                    n_fft=self.n_fft,
+                    hop_length=self.hop_length,
+                    win_length=self.n_fft,
+                    center=True,
+                    window=self.window
+                )
+
         if metrics is not None:
             for met in self.metrics["inference"]:
                 metrics.update(met.name, met(**batch))

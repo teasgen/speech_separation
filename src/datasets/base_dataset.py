@@ -24,6 +24,8 @@ class BaseDataset(Dataset):
         index,
         limit=None,
         target_sr=16000,
+        n_fft=400,
+        hop_length=100,
         shuffle_index=False,
         instance_transforms=None,
     ):
@@ -43,6 +45,8 @@ class BaseDataset(Dataset):
         """
         self._assert_index_is_valid(index)
         self.target_sr = target_sr
+        self.n_fft = n_fft
+        self.hop_length = hop_length
 
         index = self._shuffle_and_limit_index(index, limit, shuffle_index)
         self._index: List[dict] = index
@@ -100,6 +104,13 @@ class BaseDataset(Dataset):
         mix_spectrogram = self.get_spectrogram(mix_audio)
         instance_data.update({"mix_spectrogram": mix_spectrogram})
 
+        mix_magnitude, mix_phase = self.get_magnitude(mix_audio)
+        instance_data.update({
+            "mix_magnitude": mix_magnitude,
+            "mix_phase": mix_phase
+        })
+        # now we have phase data
+
         s1_spectrogram = self.get_spectrogram(s1_audio)
         instance_data.update({"s1_spectrogram": s1_spectrogram})
 
@@ -141,7 +152,21 @@ class BaseDataset(Dataset):
         Returns:
             spectrogram (Tensor): spectrogram for the audio.
         """
+        # TODO: CHANGE LOG-MEL-SPECTROGRAM TO MAGNITUDE SPECTROGRAM
         return torch.log(self.instance_transforms["get_spectrogram"](audio).clamp(1e-5))
+
+    def get_magnitude(self, audio):
+        # TODO: refactor to make use of self
+        stft = torch.stft(
+            audio,
+            n_fft=self.n_fft,
+            hop_length=self.hop_length,
+            win_length=self.n_fft,
+            window=torch.hann_window(self.n_fft),
+            center=True,
+            return_complex=True
+        )
+        return torch.abs(stft), torch.angle(stft)
 
     def __len__(self):
         """
