@@ -2,7 +2,7 @@ from datetime import datetime
 
 import numpy as np
 import pandas as pd
-
+import torch
 
 class WandBWriter:
     """
@@ -166,7 +166,11 @@ class WandBWriter:
             audio (Path | ndarray): audio in the WandB-friendly format.
             sample_rate (int): audio sample rate.
         """
-        audio = audio.detach().cpu().numpy().T
+        if isinstance(audio, torch.Tensor):
+            audio = audio.detach().cpu().numpy().T
+        elif isinstance(audio, np.ndarray):
+            audio = audio.T
+
         self.wandb.log(
             {
                 self._object_name(audio_name): self.wandb.Audio(
@@ -175,6 +179,7 @@ class WandBWriter:
             },
             step=self.step,
         )
+
 
     def add_text(self, text_name, text):
         """

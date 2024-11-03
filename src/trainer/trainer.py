@@ -1,6 +1,7 @@
 from src.metrics.tracker import MetricTracker
 from src.trainer.base_trainer import BaseTrainer
 
+import pandas as pd
 
 class Trainer(BaseTrainer):
     """
@@ -67,13 +68,17 @@ class Trainer(BaseTrainer):
             mode (str): train or inference. Defines which logging
                 rules to apply.
         """
-        # method to log data from you batch
-        # such as audio, text or images, for example
+        self.log_audio(batch, batch_idx, mode) 
 
-        # logging scheme might be different for different partitions
-        if mode == "train":  # the method is called only every self.log_step steps
-            # Log Stuff
-            pass
-        else:
-            # Log Stuff
-            pass
+    def log_audio(self, batch, batch_idx, mode):
+        audio_samples = {
+            "mix": self.writer.wandb.Audio(batch["mix"][0].detach().cpu().numpy(), sample_rate=16000),
+            "s1": self.writer.wandb.Audio(batch["s1"][0].detach().cpu().numpy(), sample_rate=16000),
+            "s2": self.writer.wandb.Audio(batch["s2"][0].detach().cpu().numpy(), sample_rate=16000),
+            "s1_pred": self.writer.wandb.Audio(batch["s1_pred"][0].detach().cpu().numpy(), sample_rate=16000),
+            "s2_pred": self.writer.wandb.Audio(batch["s2_pred"][0].detach().cpu().numpy(), sample_rate=16000),
+        }
+
+        audio_df = pd.DataFrame([audio_samples]) 
+        self.writer.add_table(f"{mode}/audio_table", audio_df)
+
