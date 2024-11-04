@@ -130,6 +130,7 @@ class VoiceFilter(nn.Module):
             )  # [B, W, H*C + 256] = [10, 321, 1280]
             lstm_out, _ = self.lstm(concat)  # [B, W, 400] = [10, 321, 400]
             mask = self.fc2(self.fc1(lstm_out))  # [B, W, H] = [10, 321, 201]
+            # TODO: ADD ACTIVATION HERE SO ITS A PROPER MASK! Discuss with the team what makes more sense
             mask = mask.permute(0, 2, 1)  # [B, H, W] = [10, 201, 321]
             outputs[f"s{i}_spec_pred"] = mask * mix_magnitude  # [B, H, W] = [10, 201, 321]
             # outputs[f"s{i}_mask"] = mask # TODO: maybe log mask (?)
