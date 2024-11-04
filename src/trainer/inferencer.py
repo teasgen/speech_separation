@@ -123,10 +123,13 @@ class Inferencer(BaseTrainer):
         batch.update(outputs)
 
         # TODO: refactor so that code below depends on model
-        if "s1_magnitude_pred" in batch:
+        if "s1_spec_pred" in batch:
             for i in range(1, 3):
+                # inverse to what was done in get_magnitude
+                spec = (torch.clamp(batch[f"s{i}_spec_pred"], 0.0, 1.0) - 1.0) * 100.0 + 20.0
+                spec = 10.0 ** (spec * 0.05)
                 complex_spectrum = torch.polar(
-                    batch[f"s{i}_magnitude_pred"],
+                    spec,
                     batch["mix_phase"]
                 )
                 # TODO: refactor for arbitrary n_fft and hop_length

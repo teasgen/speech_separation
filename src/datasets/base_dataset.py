@@ -166,7 +166,10 @@ class BaseDataset(Dataset):
             center=True,
             return_complex=True
         )
-        return torch.abs(stft), torch.angle(stft)
+        magnitude, phase = torch.abs(stft), torch.angle(stft)
+        spec = 20.0 * torch.log10(torch.clamp(magnitude, min=1e-5)) - 20
+        spec = torch.clamp(spec / 100, min=-1.0, max=0.0) + 1.0
+        return spec, phase
 
     def __len__(self):
         """

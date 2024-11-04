@@ -40,10 +40,10 @@ class Trainer(BaseTrainer):
         batch.update(outputs)
 
         # TODO: refactor so that code below depends on model
-        if "s1_magnitude_pred" in batch:
+        if "s1_spec_pred" in batch:
             for i in range(1, 3):
                 complex_spectrum = torch.polar(
-                    batch[f"s{i}_magnitude_pred"],
+                    batch[f"s{i}_spec_pred"],
                     batch["mix_phase"]
                 )
                 # TODO: refactor for arbitrary n_fft and hop_length
