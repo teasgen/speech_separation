@@ -147,7 +147,7 @@ class BaseTrainer:
             self.n_fft = config.trainer.get("n_fft")
             self.hop_length = config.trainer.get("hop_length")
             self.window = torch.hann_window(config.trainer.get("n_fft")).to(device)
-            print(f"{'*'*20}\nWINDOW PUT ON DEVICE: {self.window.device}\n{'*'*20}")
+            print(f"{'*'*35}\nWINDOW PUT ON DEVICE: {self.window.device}\n{'*'*20}")
 
     def train(self):
         """
