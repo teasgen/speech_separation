@@ -61,6 +61,7 @@ class BaseTrainer:
         self.cfg_trainer = self.config.trainer
 
         self.device = device
+        
         self.skip_oom = skip_oom
 
         self.logger = logger
@@ -145,9 +146,8 @@ class BaseTrainer:
         if config.trainer.get("stft") is not None:
             self.n_fft = config.trainer.get("n_fft")
             self.hop_length = config.trainer.get("hop_length")
-            self.window = torch.hann_window(config.trainer.get("n_fft"))
-            self.window.to(device)
-            print(f"{'*'*10}\nWINDOW PUT ON DEVICE: {self.window.device}\n{'*'*10}")
+            self.window = torch.hann_window(config.trainer.get("n_fft")).to(device)
+            print(f"{'*'*20}\nWINDOW PUT ON DEVICE: {self.window.device}\n{'*'*20}")
 
     def train(self):
         """
