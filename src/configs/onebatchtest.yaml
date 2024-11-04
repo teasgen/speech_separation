@@ -10,9 +10,12 @@ optimizer:
   _target_: torch.optim.Adam
   lr: 3e-4
 lr_scheduler:
-  _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
-  factor: 0.5
-  patience: 0
+  _target_: torch.optim.lr_scheduler.OneCycleLR
+  max_lr: 0.0003
+  pct_start: 0.2
+  steps_per_epoch: ${trainer.epoch_len}
+  epochs: ${trainer.n_epochs}
+  anneal_strategy: cos
 loss_function:
   _target_: src.loss.MSEWavLoss
 trainer:
