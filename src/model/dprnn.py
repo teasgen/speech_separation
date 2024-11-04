@@ -23,20 +23,21 @@ class IntraChunkRNN(nn.Module):
         if self.norm:
             self.norm1d = nn.LayerNorm(num_features) # TODO: change to global?
 
-    def forward(self, input):
+    def forward(self, data):
         """
         Args:
-            input (batch_size, num_features, S, chunk_size)
+            data (batch_size, num_features, S, chunk_size)
         Returns:
             output (batch_size, num_features, S, chunk_size)
         """
         num_features = self.num_features
-        batch_size, _, S, chunk_size = input.size()
+        batch_size, _, S, chunk_size = data.size()
 
+        # https://stackoverflow.com/questions/53231571/what-does-flatten-parameters-do
         self.rnn.flatten_parameters()
 
-        residual = input  # (batch_size, num_features, S, chunk_size)
-        x = input.permute(0, 2, 3, 1).contiguous()  # -> (batch_size, S, chunk_size, num_features)
+        residual = data  # (batch_size, num_features, S, chunk_size)
+        x = data.permute(0, 2, 3, 1).contiguous()  # -> (batch_size, S, chunk_size, num_features)
         x = rearrange(x, "b s chunk_size n -> (b s) chunk_size n", chunk_size=chunk_size, s=S)
         x, _ = self.rnn(x)
         x = self.fc(x)
@@ -67,20 +68,21 @@ class InterChunkRNN(nn.Module):
         if self.norm:
             self.norm1d = nn.LayerNorm(num_features) # TODO: change to global?
 
-    def forward(self, input):
+    def forward(self, data):
         """
         Args:
-            input (batch_size, num_features, S, chunk_size)
+            data (batch_size, num_features, S, chunk_size)
         Returns:
             output (batch_size, num_features, S, chunk_size)
         """
         num_features = self.num_features
-        _, _, S, chunk_size = input.size()
+        _, _, S, chunk_size = data.size()
 
+        # https://stackoverflow.com/questions/53231571/what-does-flatten-parameters-do
         self.rnn.flatten_parameters()
 
-        residual = input  # (batch_size, num_features, S, chunk_size)
-        x = input.permute(0, 3, 2, 1).contiguous()  # -> (batch_size, chunk_size, S, num_features)
+        residual = data  # (batch_size, num_features, S, chunk_size)
+        x = data.permute(0, 3, 2, 1).contiguous()  # -> (batch_size, chunk_size, S, num_features)
         x = rearrange(x, "b chunk_size s n -> (b chunk_size) s n", chunk_size=chunk_size, s=S)
         x, _ = self.rnn(x)
         x = self.fc(x)
@@ -104,14 +106,14 @@ class DPRNNBlock(nn.Module):
         self.intra_chunk_block = IntraChunkRNN(num_features, hidden_channels, norm=norm)
         self.inter_chunk_block = InterChunkRNN(num_features, hidden_channels, norm=norm, bidir=bidir)
 
-    def forward(self, input):
+    def forward(self, data):
         """
         Args:
-            input (batch_size, num_features, S, chunk_size)
+            data (batch_size, num_features, S, chunk_size)
         Returns:
             output (batch_size, num_features, S, chunk_size)
         """
-        x = self.intra_chunk_block(input)
+        x = self.intra_chunk_block(data)
         output = self.inter_chunk_block(x)
 
         return output
@@ -123,18 +125,18 @@ class SplitToFolds(nn.Module):
 
         self.chunk_size, self.step_size = chunk_size, step_size
 
-    def forward(self, input):
+    def forward(self, data):
         """
         Args:
-            input (batch_size, num_features, n_frames)
+            data (batch_size, num_features, ts)
         Returns:
-            output (batch_size, num_features, S, chunk_size): S is length of global output, where S = (n_frames-chunk_size)//hop_size + 1
+            output (batch_size, num_features, S, chunk_size): S is length of global output, where S = (ts-chunk_size)//step_size + 1
         """
-        chunk_size, hop_size = self.chunk_size, self.step_size
-        batch_size, num_features, n_frames = input.size()
+        chunk_size, step_size = self.chunk_size, self.step_size
+        batch_size, num_features, ts = data.size()
 
-        input = input.view(batch_size, num_features, n_frames, 1)
-        x = F.unfold(input, kernel_size=(chunk_size, 1), stride=(hop_size, 1))
+        data = data.view(batch_size, num_features, ts, 1)
+        x = F.unfold(data, kernel_size=(chunk_size, 1), stride=(step_size, 1))
         x = x.view(batch_size, num_features, chunk_size, -1)
         output = x.permute(0, 1, 3, 2).contiguous()
         return output
@@ -146,23 +148,23 @@ class OverlapAdd(nn.Module):
 
         self.chunk_size, self.step_size = chunk_size, step_size
 
-    def forward(self, input):
+    def forward(self, data):
         """
         Args:
-            input: (batch_size, num_features, S, chunk_size)
+            data: (batch_size, num_features, S, chunk_size)
         Returns:
-            output: (batch_size, num_features, n_frames)
+            output: (batch_size, num_features, ts)
         """
-        chunk_size, hop_size = self.chunk_size, self.step_size
-        batch_size, num_features, S, chunk_size = input.size()
-        n_frames = (S - 1) * hop_size + chunk_size
+        chunk_size, step_size = self.chunk_size, self.step_size
+        batch_size, num_features, S, chunk_size = data.size()
+        ts = (S - 1) * step_size + chunk_size
 
-        x = input.permute(0, 1, 3, 2).contiguous()  # -> (batch_size, num_features, chunk_size, S)
+        x = data.permute(0, 1, 3, 2).contiguous()  # -> (batch_size, num_features, chunk_size, S)
         x = x.view(batch_size, num_features * chunk_size, S)  # -> (batch_size, num_features*chunk_size, S)
         output = F.fold(
-            x, kernel_size=(chunk_size, 1), stride=(hop_size, 1), output_size=(n_frames, 1)
-        )  # -> (batch_size, num_features, n_frames, 1)
-        output = output.squeeze(dim=3)
+            x, kernel_size=(chunk_size, 1), stride=(step_size, 1), output_size=(ts, 1)
+        )  # -> (batch_size, num_features, ts, 1)
+        output = output.squeeze(3)
 
         return output
 
@@ -190,15 +192,15 @@ class DPRNN(nn.Module):
             nn.Conv1d(num_features, num_features, 1),
         )
 
-    def forward(self, input):
+    def forward(self, data):
         """
         Args:
-            input (batch_size, num_features, ts)
+            data (batch_size, num_features, ts)
         Returns:
             output [(batch_size, num_features, ts), (batch_size, num_features, ts)]
         """
-        bs, num_features, ts = input.shape
-        x = self.segmenter(input)  # -> (batch_size, num_features, S, chunk_size)
+        bs, num_features, ts = data.shape
+        x = self.segmenter(data)  # -> (batch_size, num_features, S, chunk_size)
 
         output = self.model(x)  # -> (batch_size, num_features, S, chunk_size)
 

@@ -14,6 +14,7 @@ hydra-core
 pesq==0.0.4
 pystoi==0.4.1
 soundfile==0.12.1
+einops
 
 black
 isort
