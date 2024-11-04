@@ -188,7 +188,6 @@ class DPRNN(nn.Module):
 
         self.postprocessing = nn.Sequential(
             nn.Conv1d(num_features, num_features, 1),
-            nn.ReLU(),
         )
 
     def forward(self, input):

@@ -11,7 +11,7 @@ optimizer:
   lr: 3e-4
 lr_scheduler:
   _target_: torch.optim.lr_scheduler.OneCycleLR
-  max_lr: 5e-4
+  max_lr: 1e-3
   pct_start: 0.03
   steps_per_epoch: ${trainer.epoch_len}
   epochs: ${trainer.n_epochs}
@@ -21,7 +21,7 @@ loss_function:
 trainer:
   log_step: 100
   n_epochs: 100
-  epoch_len: 100
+  epoch_len: 625
   device_tensors: ["mix_spectrogram", "s1_spectrogram", "s2_spectrogram", "mix", "s1", "s2"] # which tensors should be on device (ex. GPU)
   resume_from: null # null or path to the checkpoint dir with *.pth and config.yaml
   device: auto # device name or "auto"
