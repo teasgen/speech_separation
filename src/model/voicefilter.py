@@ -121,20 +121,18 @@ class VoiceFilter(nn.Module):
         B, C, H, W = x.shape
 
         x = x.permute(0, 3, 2, 1).contiguous()  # [B, W, H, C] = [10, 321, 201, 8]
-        x = x.view(B, W, -1)  # [B, W, H * C]
+        # x = x.view(B, W, -1)  # [B, W, H * C]
+        x = x.view(B, C * H, W) # [B, C * H, W]
 
         # making masks
         outputs = {}
         for i, dvector in enumerate([s1_dvector, s2_dvector], start=1):
-            dvector_expanded = dvector.unsqueeze(1).expand(
-                -1, x.size(1), -1
-            )  # [B, W, 256] = [10, 321, 256]
-            concat = torch.cat(
-                (x, dvector_expanded), dim=2
-            )  # [B, W, H*C + 256] = [10, 321, 1280]
-            lstm_out, _ = self.lstm(concat)  # [B, W, 400] = [10, 321, 400]
+            dvector_expanded = dvector.unsqueeze(-1).expand(
+                -1, -1, W
+            )  # [B, 256, W]
+            concat = torch.cat((x, dvector_expanded), dim=1)  # [B, C*H + 256, W] = [10, 1280, 321]
+            lstm_out, _ = self.lstm(concat.transpose(1, 2))  # [B, W, 400] = [10, 321, 400]
             mask = self.fc(lstm_out)  # [B, W, H] = [10, 321, 201]
-            # TODO: ADD ACTIVATION HERE SO ITS A PROPER MASK! Discuss with the team what makes more sense
             mask = mask.permute(0, 2, 1)  # [B, H, W] = [10, 201, 321]
             outputs[f"s{i}_spec_pred"] = mask * mix_magnitude  # [B, H, W] = [10, 201, 321]
             # outputs[f"s{i}_mask"] = mask # TODO: maybe log mask (?)
