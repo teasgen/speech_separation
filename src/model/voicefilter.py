@@ -76,9 +76,13 @@ class VoiceFilter(nn.Module):
         self.lstm = nn.LSTM(input_size=8 * input_size + 256, hidden_size=400, batch_first=True)
 
         # fc for output
-        self.fc1 = nn.Linear(400, 600)
-        self.fc2 = nn.Linear(
-            600, input_size
+        self.fc = nn.Sequential(
+            nn.ReLU(),
+            nn.Linear(400, 600),
+            nn.Dropout2d(p=0.35), #add for regularization
+            nn.ReLU(),
+            nn.Linear(600, input_size),
+            nn.Sigmoid()
         )
 
     def forward(
@@ -95,7 +99,6 @@ class VoiceFilter(nn.Module):
         # s1_data.size() = [B, T, H', W'] = [10, 50, 88, 88]
 
         # s1_data.unsqueeze(1).size() = [B, 1, T, H', W'] = [10, 1, 50, 88, 88]
-        # TODO: is torch.no_grad() necessary?
         s1_embedding = self.lipreader(s1_data.unsqueeze(1), lengths=[50])
         s2_embedding = self.lipreader(s2_data.unsqueeze(1), lengths=[50])
         # TODO: merge two vectors, is it possible?..
@@ -129,7 +132,7 @@ class VoiceFilter(nn.Module):
                 (x, dvector_expanded), dim=2
             )  # [B, W, H*C + 256] = [10, 321, 1280]
             lstm_out, _ = self.lstm(concat)  # [B, W, 400] = [10, 321, 400]
-            mask = self.fc2(self.fc1(lstm_out))  # [B, W, H] = [10, 321, 201]
+            mask = self.fc(lstm_out)  # [B, W, H] = [10, 321, 201]
             # TODO: ADD ACTIVATION HERE SO ITS A PROPER MASK! Discuss with the team what makes more sense
             mask = mask.permute(0, 2, 1)  # [B, H, W] = [10, 201, 321]
             outputs[f"s{i}_spec_pred"] = mask * mix_magnitude  # [B, H, W] = [10, 201, 321]
