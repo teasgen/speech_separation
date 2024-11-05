@@ -83,7 +83,7 @@ class VoiceFilter(nn.Module):
             nn.ReLU(),
             nn.Linear(600, input_size),
             nn.Sigmoid()
-        )
+        ) #changed this
 
     def forward(
         self, mix_magnitude, s1_video: torch.tensor, s2_video: torch.tensor, **batch
