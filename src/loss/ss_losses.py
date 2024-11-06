@@ -41,7 +41,7 @@ class MSESpecLoss(BaseSSLoss):
         loss_s1 = self.loss(s1_spec_pred, s1_spec_true)
         loss_s2 = self.loss(s2_spec_pred, s2_spec_true)
         total_loss = loss_s1 + loss_s2
-        return total_loss
+        return {"loss": total_loss}
 
 
 class MSEWavLoss(BaseSSLoss):
