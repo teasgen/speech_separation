@@ -20,7 +20,7 @@ def collate_fn(dataset_items: list[dict]):
         "s1_spectrogram",
         "s2_spectrogram",
         "s1_spec_true",
-        "s2_spec_true"
+        "s2_spec_true",
         "s1_video",
         "s2_video",
         "mix",
