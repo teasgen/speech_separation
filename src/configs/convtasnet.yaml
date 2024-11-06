@@ -1,0 +1,34 @@
+defaults:
+  - model: convtasnet
+  - writer: wandb
+  - metrics: ss
+  - datasets: ss_dataset
+  - dataloader: example
+  - transforms: ss_full_spec
+  - _self_
+optimizer:
+  _target_: torch.optim.AdamW
+  lr: 0.0001
+lr_scheduler:
+  _target_: torch.optim.lr_scheduler.OneCycleLR
+  max_lr: 0.0002
+  pct_start: 0.1
+  steps_per_epoch: ${trainer.epoch_len}
+  epochs: ${trainer.n_epochs}
+  anneal_strategy: cos
+loss_function:
+  _target_: src.loss.SiSNRWavLoss
+trainer:
+  log_step: 50
+  n_epochs: 100
+  epoch_len: 400
+  device_tensors: ["mix_spectrogram", "s1_spectrogram", "s2_spectrogram", "mix", "s1", "s2"] # which tensors should be on device (ex. GPU)
+  resume_from: null # null or path to the checkpoint dir with *.pth and config.yaml
+  device: auto # device name or "auto"
+  override: True # if True, will override the previous run with the same name
+  monitor: "max val_SISNRMetric" # "off" or "max/min metric_name", i.e. our goal is to maximize/minimize metric
+  save_period: 5 # checkpoint each save_period epochs in addition to the best epoch
+  early_stop: ${trainer.n_epochs} # epochs for early stopping
+  save_dir: "saved"
+  seed: 1
+  max_grad_norm: 8
