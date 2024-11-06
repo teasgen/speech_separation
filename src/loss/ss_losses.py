@@ -28,7 +28,23 @@ class BaseSSLoss(nn.Module):
 
 class MSESpecLoss(BaseSSLoss):
     def __init__(self):
-        loss = nn.MSELoss(reduction="mean")
+        loss = nn.MSELoss(reduction="sum")
+        super().__init__(loss)
+
+    def forward(
+        self,
+        s1_spec_pred: torch.Tensor,
+        s2_spec_pred: torch.Tensor,
+        s1_spec_true: torch.Tensor,
+        s2_spec_true: torch.Tensor,
+        **batch
+    ):
+        return super().forward(s1_pred=s1_spec_pred, s2_pred=s2_spec_pred, s1=s1_spec_true, s2=s2_spec_true)
+
+
+class L1SpecLoss(BaseSSLoss):
+    def __init__(self):
+        loss = nn.L1Loss(reduction="sum")
         super().__init__(loss)
 
     def forward(
