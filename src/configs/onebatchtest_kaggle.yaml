@@ -22,7 +22,7 @@ trainer:
   log_step: 50
   n_epochs: 10
   epoch_len: 100
-  device_tensors: ["mix_spectrogram", "mix_magnitude", "mix_phase", "s1_spectrogram", "s2_spectrogram", "mix", "s1", "s2", "s1_video", "s2_video"] # which tensors should be on device (ex. GPU)
+  device_tensors: ["mix_spectrogram", "mix_magnitude", "mix_phase", "s1_spectrogram", "s2_spectrogram", "s1_spec_true", "s2_spec_true", "mix", "s1", "s2", "s1_video", "s2_video"] # which tensors should be on device (ex. GPU)
   stft: True
   n_fft: 400
   hop_length: 100
