@@ -61,8 +61,6 @@ class Trainer(BaseTrainer):
                     window=self.window
                 )
 
-            # MAYBE COMOUTE LOSS FOR specs?
-
         all_losses = self.criterion(**batch)
         batch.update(all_losses)
 
