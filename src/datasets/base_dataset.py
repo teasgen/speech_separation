@@ -111,6 +111,17 @@ class BaseDataset(Dataset):
         })
         # now we have phase data
 
+        s1_spec_true, s1_phase = self.get_magnitude(s1_audio)
+        instance_data.update({
+            "s1_spec_true": s1_spec_true
+        })
+
+        s2_spec_true, s2_phase = self.get_magnitude(s2_audio)
+        instance_data.update({
+            "s2_spec_true": s2_spec_true
+        })
+        # for MSE spec loss calculation - for size consistency
+
         s1_spectrogram = self.get_spectrogram(s1_audio)
         instance_data.update({"s1_spectrogram": s1_spectrogram})
 
@@ -152,11 +163,9 @@ class BaseDataset(Dataset):
         Returns:
             spectrogram (Tensor): spectrogram for the audio.
         """
-        # TODO: CHANGE LOG-MEL-SPECTROGRAM TO MAGNITUDE SPECTROGRAM
         return torch.log(self.instance_transforms["get_spectrogram"](audio).clamp(1e-5))
 
     def get_magnitude(self, audio):
-        # TODO: refactor to make use of self
         stft = torch.stft(
             audio,
             n_fft=self.n_fft,

@@ -17,7 +17,7 @@ lr_scheduler:
   epochs: ${trainer.n_epochs}
   anneal_strategy: cos
 loss_function:
-  _target_: src.loss.MSEWavLoss
+  _target_: src.loss.MSESpecLoss
 trainer:
   log_step: 50
   n_epochs: 100

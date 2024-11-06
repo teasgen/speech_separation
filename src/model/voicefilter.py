@@ -25,16 +25,17 @@ class VoiceFilter(nn.Module):
         self.preprocessing_func = get_preprocessing_pipelines(modality="video")["test"]
 
         # gru layer for lip embeddings
+        # TODO: refactor 1024 to arbitrary embed_size from lipreader
         self.gru = nn.GRU(
-            input_size=1024,
-            hidden_size=256,
+            input_size=1024, # video embedding size per frame, needs adjustment for different lipreaders
+            hidden_size=input_size,
             num_layers=2,
             bidirectional=True,
             batch_first=True,
         )
 
         # fc to obtain dvector
-        self.fc_dvector = nn.Linear(256 * 2, 256)  # *2 bidirectional gru
+        self.fc_dvector = nn.Linear(input_size * 2, input_size)  # *2 bidirectional gru
 
         # cnn for mix spec, parameters from paper
         # 8 cnn layers
@@ -73,7 +74,11 @@ class VoiceFilter(nn.Module):
         # padding for size consistency
 
         # lstm for mask
-        self.lstm = nn.LSTM(input_size=8 * input_size + 256, hidden_size=400, batch_first=True)
+        self.lstm = nn.LSTM(
+            input_size=9 * input_size,
+            hidden_size=400,
+            batch_first=True
+        )
 
         # fc for output
         self.fc = nn.Sequential(
@@ -88,6 +93,7 @@ class VoiceFilter(nn.Module):
     def forward(
         self, mix_magnitude, s1_video: torch.tensor, s2_video: torch.tensor, **batch
     ):
+        # TODO: CHANGE TO PROPER SIZING AND CONCATENATING!!!
         # s1_video.size() = [B, T, H, W] = (10, 50, 96, 96)
         s1_data = torch.stack(
             [self.preprocessing_func(video) for video in s1_video], dim=0
@@ -113,11 +119,11 @@ class VoiceFilter(nn.Module):
 
         s1_dvector = self.fc_dvector(s1_gru[:, -1, :])
         s2_dvector = self.fc_dvector(s2_gru[:, -1, :])
-        # s1_dvector.size() = [B, 256] = [10, 256]
+        # s1_dvector.size() = [B, input_size] = [10, input_size]
 
         # mix_magnitude.size() = [B, H, W] = [10, 201, 321]
         x = mix_magnitude.unsqueeze(1)
-        x = self.cnn_layers(x)
+        x = self.cnn_layers(x) # [B, C, H, W]
         B, C, H, W = x.shape
 
         x = x.permute(0, 3, 2, 1).contiguous()  # [B, W, H, C] = [10, 321, 201, 8]
@@ -129,11 +135,11 @@ class VoiceFilter(nn.Module):
         for i, dvector in enumerate([s1_dvector, s2_dvector], start=1):
             dvector_expanded = dvector.unsqueeze(-1).expand(
                 -1, -1, W
-            )  # [B, 256, W]
-            concat = torch.cat((x, dvector_expanded), dim=1)  # [B, C*H + 256, W] = [10, 1280, 321]
+            )  # [B, input_size, W]
+            concat = torch.cat((x, dvector_expanded), dim=1)  # [B, C*H + input_size, W] = [10, 1280, 321]
             lstm_out, _ = self.lstm(concat.transpose(1, 2))  # [B, W, 400] = [10, 321, 400]
             mask = self.fc(lstm_out)  # [B, W, H] = [10, 321, 201]
-            mask = mask.permute(0, 2, 1)  # [B, H, W] = [10, 201, 321]
+            mask = mask.transpose(1, 2)  # [B, H, W] = [10, 201, 321]
             outputs[f"s{i}_spec_pred"] = mask * mix_magnitude  # [B, H, W] = [10, 201, 321]
             # outputs[f"s{i}_mask"] = mask # TODO: maybe log mask (?)
 
