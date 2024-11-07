@@ -22,8 +22,8 @@ class SISNRiMetric(SS2BaseMetric):
             s1_pred=s1_pred, s2_pred=s2_pred, s1=s1, s2=s2, **batch
         )
 
-        si_snr_mix_s1 = self.metric(s1, mix)
-        si_snr_mix_s2 = self.metric(s2, mix)
+        si_snr_mix_s1 = self.metric(mix, s1)
+        si_snr_mix_s2 = self.metric(mix, s2)
 
         si_snr_mix = (si_snr_mix_s1 + si_snr_mix_s2) / 2
 
