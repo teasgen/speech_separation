@@ -54,16 +54,21 @@ class Separator(nn.Module):
         super().__init__()
         self.norm_1 = GlobalNorm(N)
         self.conv1d = nn.Conv1d(N, B, 1)
-        self.conv_block = nn.ModuleList([Conv1D_Block(B, H, R, dilation=2**i)
+        self.separator = nn.ModuleList([Conv1D_Block(B, H, R, dilation=2**i)
                                         for s in range(P) for i in range(X)])
-        self.output = nn.Sequential(nn.PReLU(), nn.Conv1d(B, 2*N, 1))
+        self.seq = nn.Sequential(nn.PReLU(), nn.Conv1d(B, N * 2, 1))
 
     def forward(self, x):
         x = self.norm_1(x)
         x = self.conv1d(x)
-
-        acc_sc = sum(layer(x)[1] for layer in self.conv_block)
-        return self.output(acc_sc)
+        acc_sc = 0.0
+        
+        for layer in self.separator:
+            residual, score = layer(x)
+            x += residual
+            acc_sc += score
+        
+        return self.seq(acc_sc)
 
 class Decoder(nn.Module):
     def __init__(self, N=512, out_channels=1, kernel_size=32, stride=16, bias=False):
