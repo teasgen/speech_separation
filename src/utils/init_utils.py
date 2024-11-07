@@ -10,6 +10,9 @@ import numpy as np
 import torch
 from omegaconf import OmegaConf
 
+from src.lipreader.lipreading.dataloaders import get_preprocessing_pipelines
+from src.lipreader.lipreading.model import Lipreading
+from src.lipreader.lipreading.utils import load_json, load_model
 from src.logger.logger import setup_logging
 from src.utils.io_utils import ROOT_PATH
 
@@ -160,3 +163,44 @@ def setup_saving_and_logging(config):
     logger.setLevel(logging.DEBUG)
 
     return logger
+
+
+def init_lipreader(config, path):
+    args_loaded = load_json(config)
+
+    # defaults to lrw_snv1x_tcn1x
+    if args_loaded.get("tcn_num_layers", ""):
+        tcn_options = {
+            "num_layers": args_loaded.get("tcn_num_layers", 4),
+            "kernel_size": args_loaded.get("tcn_kernel_size", [3]),
+            "dropout": args_loaded.get("tcn_dropout", 0.2),
+            "dwpw": args_loaded.get("tcn_dwpw", False),
+            "width_mult": args_loaded.get("tcn_width_mult", 1),
+        }
+    else:
+        tcn_options={}
+    if args_loaded.get("densetcn_block_config", ""):
+        densetcn_options = {'block_config': args_loaded['densetcn_block_config'],
+                            'growth_rate_set': args_loaded['densetcn_growth_rate_set'],
+                            'reduced_size': args_loaded['densetcn_reduced_size'],
+                            'kernel_size_set': args_loaded['densetcn_kernel_size_set'],
+                            'dilation_size_set': args_loaded['densetcn_dilation_size_set'],
+                            'squeeze_excitation': args_loaded['densetcn_se'],
+                            'dropout': args_loaded['densetcn_dropout'],
+                            }
+    else:
+        densetcn_options = {}
+
+    lipreader = Lipreading(
+        modality="video",
+        num_classes=args_loaded.get("num_classes", 500),
+        tcn_options=tcn_options,
+        densetcn_options=densetcn_options,
+        backbone_type=args_loaded["backbone_type"],
+        relu_type=args_loaded["relu_type"],
+        width_mult=args_loaded["width_mult"],
+        use_boundary=args_loaded.get("use_boundary", False),
+        extract_feats=True,
+    )
+
+    return load_model(load_path=path, model=lipreader, allow_size_mismatch=True)

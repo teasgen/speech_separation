@@ -13,11 +13,24 @@ def collate_fn(dataset_items: list[dict]):
         result_batch (dict[Union[Tensor, List]]): dict, containing batch-version
             of the tensors or lists.
     """
-    pack_to_tensors_batch_keys = ["mix_spectrogram", "s1_spectrogram", "s2_spectrogram", "s1_video", "s2_video", "mix", "s1", "s2"]
+    pack_to_tensors_batch_keys = [
+        "mix_spectrogram",
+        "mix_magnitude",
+        "mix_phase",
+        "s1_spectrogram",
+        "s2_spectrogram",
+        "s1_spec_true",
+        "s2_spec_true",
+        "s1_video",
+        "s2_video",
+        "mix",
+        "s1",
+        "s2",
+    ]
     pack_to_list_batch_keys = ["audio_path"]
     result_batch = {}
     for key in pack_to_tensors_batch_keys + pack_to_list_batch_keys:
-        if dataset_items[0][key] is None: # e.g video
+        if dataset_items[0][key] is None:  # e.g video
             result_batch[key] = None
             continue
 

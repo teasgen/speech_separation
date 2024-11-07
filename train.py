@@ -32,6 +32,8 @@ def main(config):
         device = "cuda" if torch.cuda.is_available() else "cpu"
     else:
         device = config.trainer.device
+    
+    print(f"Device: {device}")
 
     # setup data_loader instances
     # batch_transforms should be put on device

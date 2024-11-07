@@ -1,0 +1,37 @@
+defaults:
+  - model: voicefilter_kaggle
+  - writer: wandb
+  - metrics: ss_cuda
+  - datasets: ss_dataset_kaggle
+  - dataloader: kaggle
+  - transforms: ss_full_spec
+  - _self_
+optimizer:
+  _target_: torch.optim.Adam
+  lr: 3e-4
+lr_scheduler:
+  _target_: torch.optim.lr_scheduler.OneCycleLR
+  max_lr: 0.0003
+  pct_start: 0.2
+  steps_per_epoch: ${trainer.epoch_len}
+  epochs: ${trainer.n_epochs}
+  anneal_strategy: cos
+loss_function:
+  _target_: src.loss.MSESpecLoss
+trainer:
+  log_step: 50
+  n_epochs: 100
+  epoch_len: 150
+  device_tensors: ["mix_spectrogram", "mix_magnitude", "mix_phase", "s1_spectrogram", "s2_spectrogram", "s1_spec_true", "s2_spec_true", "mix", "s1", "s2", "s1_video", "s2_video"] # which tensors should be on device (ex. GPU)
+  stft: True
+  n_fft: 400
+  hop_length: 100
+  resume_from: null # null or path to the checkpoint dir with *.pth and config.yaml
+  device: auto # device name or "auto"
+  override: True # if True, will override the previous run with the same name
+  monitor: "max val_SISNRMetric" # "off" or "max/min metric_name", i.e. our goal is to maximize/minimize metric
+  save_period: 5 # checkpoint each save_period epochs in addition to the best epoch
+  early_stop: ${trainer.n_epochs} # epochs for early stopping
+  save_dir: "saved"
+  seed: 1
+  max_grad_norm: 2

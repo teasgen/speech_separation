@@ -1,0 +1,4 @@
+_target_: src.model.VoiceFilter
+input_size: 201
+lipreader_path: /Users/andreypetukhov/Documents/Машинное-обучение/AVSS/lrw_snv1x_tcn1x.pth
+lipreader_config: /Users/andreypetukhov/Documents/Машинное-обучение/AVSS/src/lipreader/configs/lrw_snv1x_tcn1x.json

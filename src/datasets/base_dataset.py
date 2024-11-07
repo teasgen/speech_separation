@@ -2,6 +2,7 @@ import logging
 import random
 from typing import List
 
+import numpy as np
 import torch
 import torchaudio
 from torch.utils.data import Dataset
@@ -19,7 +20,14 @@ class BaseDataset(Dataset):
     """
 
     def __init__(
-        self, index, limit=None, target_sr=16000, shuffle_index=False, instance_transforms=None
+        self,
+        index,
+        limit=None,
+        target_sr=16000,
+        n_fft=400,
+        hop_length=100,
+        shuffle_index=False,
+        instance_transforms=None,
     ):
         """
         Args:
@@ -37,6 +45,8 @@ class BaseDataset(Dataset):
         """
         self._assert_index_is_valid(index)
         self.target_sr = target_sr
+        self.n_fft = n_fft
+        self.hop_length = hop_length
 
         index = self._shuffle_and_limit_index(index, limit, shuffle_index)
         self._index: List[dict] = index
@@ -94,6 +104,24 @@ class BaseDataset(Dataset):
         mix_spectrogram = self.get_spectrogram(mix_audio)
         instance_data.update({"mix_spectrogram": mix_spectrogram})
 
+        mix_magnitude, mix_phase = self.get_magnitude(mix_audio)
+        instance_data.update({
+            "mix_magnitude": mix_magnitude,
+            "mix_phase": mix_phase
+        })
+        # now we have phase data
+
+        s1_spec_true, s1_phase = self.get_magnitude(s1_audio)
+        instance_data.update({
+            "s1_spec_true": s1_spec_true
+        })
+
+        s2_spec_true, s2_phase = self.get_magnitude(s2_audio)
+        instance_data.update({
+            "s2_spec_true": s2_spec_true
+        })
+        # for MSE spec loss calculation - for size consistency
+
         s1_spectrogram = self.get_spectrogram(s1_audio)
         instance_data.update({"s1_spectrogram": s1_spectrogram})
 
@@ -101,7 +129,9 @@ class BaseDataset(Dataset):
         instance_data.update({"s2_spectrogram": s2_spectrogram})
 
         # exclude WAV augs for prevending double augmentations
-        instance_data = self.preprocess_data(instance_data, special_keys=["get_spectrogram", "mix"])
+        instance_data = self.preprocess_data(
+            instance_data, special_keys=["get_spectrogram", "mix"]
+        )
 
         return instance_data
 
@@ -118,10 +148,10 @@ class BaseDataset(Dataset):
         if sr != target_sr:
             audio_tensor = torchaudio.functional.resample(audio_tensor, sr, target_sr)
         return audio_tensor
-    
+
     def load_video(self, path):
-        # TODO: load npz
-        pass
+        data = np.load(path)
+        return torch.FloatTensor(data["data"]).unsqueeze(0)
 
     def get_spectrogram(self, audio):
         """
@@ -134,6 +164,21 @@ class BaseDataset(Dataset):
             spectrogram (Tensor): spectrogram for the audio.
         """
         return torch.log(self.instance_transforms["get_spectrogram"](audio).clamp(1e-5))
+
+    def get_magnitude(self, audio):
+        stft = torch.stft(
+            audio,
+            n_fft=self.n_fft,
+            hop_length=self.hop_length,
+            win_length=self.n_fft,
+            window=torch.hann_window(self.n_fft),
+            center=True,
+            return_complex=True
+        )
+        magnitude, phase = torch.abs(stft), torch.angle(stft)
+        spec = 20.0 * torch.log10(torch.clamp(magnitude, min=1e-5)) - 20
+        spec = torch.clamp(spec / 100, min=-1.0, max=0.0) + 1.0
+        return spec, phase
 
     def __len__(self):
         """
@@ -153,8 +198,9 @@ class BaseDataset(Dataset):
         data_object = torch.load(path)
         return data_object
 
-
-    def preprocess_data(self, instance_data, special_keys=["get_spectrogram"], single_key=None):
+    def preprocess_data(
+        self, instance_data, special_keys=["get_spectrogram"], single_key=None
+    ):
         """
         Preprocess data with instance transforms.
 
@@ -173,16 +219,18 @@ class BaseDataset(Dataset):
             return instance_data
 
         if single_key is not None:
-            if single_key in self.instance_transforms: # eg train mode
-                instance_data[single_key] = self.instance_transforms[single_key](instance_data[single_key])
+            if single_key in self.instance_transforms:  # eg train mode
+                instance_data[single_key] = self.instance_transforms[single_key](
+                    instance_data[single_key]
+                )
             return instance_data
 
         for transform_name in self.instance_transforms.keys():
             if transform_name in special_keys:
                 continue  # skip special key
-            instance_data[transform_name] = self.instance_transforms[
-                transform_name
-            ](instance_data[transform_name])
+            instance_data[transform_name] = self.instance_transforms[transform_name](
+                instance_data[transform_name]
+            )
         return instance_data
 
     @staticmethod
@@ -221,7 +269,8 @@ class BaseDataset(Dataset):
         """
         for entry in index:
             assert "mix_wav_path" in entry, (
-                "Each dataset item should include field 'mix_wav_path'" " - path to mix audio file."
+                "Each dataset item should include field 'mix_wav_path'"
+                " - path to mix audio file."
             )
 
     @staticmethod

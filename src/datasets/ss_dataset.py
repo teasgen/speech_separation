@@ -1,25 +1,16 @@
-from tqdm.auto import tqdm
+import json
 import os
 from pathlib import Path
-import json
 
 import torchaudio
+from tqdm.auto import tqdm
 
 from src.datasets.base_dataset import BaseDataset
 from src.utils.io_utils import ROOT_PATH, read_json, write_json
 
 
 class SSDataset(BaseDataset):
-    """
-    Example of a nested dataset class to show basic structure.
-
-    Uses random vectors as objects and random integers between
-    0 and n_classes-1 as labels.
-    """
-
-    def __init__(
-        self, part="train", audio_dir=None, video_dir=None, *args, **kwargs
-    ):
+    def __init__(self, part="train", audio_dir=None, video_dir=None, *args, **kwargs):
         """
         Args:
             part (str): partition name
@@ -28,7 +19,7 @@ class SSDataset(BaseDataset):
             self._audio_dir = ROOT_PATH / "audio"
         else:
             self._audio_dir = Path(audio_dir)
-        if audio_dir is None:
+        if video_dir is None:
             self._video_dir = ROOT_PATH / "mouth"
         else:
             self._video_dir = Path(video_dir)
@@ -74,7 +65,6 @@ class SSDataset(BaseDataset):
                 s1_wav_path = str(s1_wav_path.absolute().resolve())
                 s2_wav_path = str(s2_wav_path.absolute().resolve())
 
-            
             if self.contains_video:
                 s1_video_path = self._video_dir / f"{id1}.npz"
                 s2_video_path = self._video_dir / f"{id2}.npz"
@@ -84,7 +74,7 @@ class SSDataset(BaseDataset):
 
             t_info = torchaudio.info(str(mix_wav_path))
             length = t_info.num_frames / t_info.sample_rate
-            
+
             index.append(
                 {
                     "mix_wav_path": str(mix_wav_path.absolute().resolve()),

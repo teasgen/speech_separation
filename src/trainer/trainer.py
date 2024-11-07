@@ -1,3 +1,5 @@
+import torch
+
 from src.metrics.tracker import MetricTracker
 from src.trainer.base_trainer import BaseTrainer
 
@@ -38,6 +40,27 @@ class Trainer(BaseTrainer):
         outputs = self.model(**batch)
         batch.update(outputs)
 
+        # TODO: refactor so that code below depends on model (?)
+        if "s1_spec_pred" in batch:
+            for i in range(1, 3):
+                # inverse to what was done in get_magnitude
+                # TODO: make a separate function/class for this
+                spec = (torch.clamp(batch[f"s{i}_spec_pred"], 0.0, 1.0) - 1.0) * 100.0 + 20.0
+                spec = 10.0 ** (spec * 0.05)
+                complex_spectrum = torch.polar(
+                    spec,
+                    batch["mix_phase"]
+                )
+
+                batch[f"s{i}_pred"] = torch.istft(
+                    complex_spectrum,
+                    n_fft=self.n_fft,
+                    hop_length=self.hop_length,
+                    win_length=self.n_fft,
+                    center=True,
+                    window=self.window
+                )
+
         all_losses = self.criterion(**batch)
         batch.update(all_losses)
 
@@ -68,17 +91,34 @@ class Trainer(BaseTrainer):
             mode (str): train or inference. Defines which logging
                 rules to apply.
         """
-        self.log_audio(batch, batch_idx, mode) 
+        if mode == "train":
+            self.log_audio(mode="train", **batch)
+        else:
+            self.log_audio(mode="val", **batch)
+            # self.log_spectrogram(mode="val", **batch)
 
-    def log_audio(self, batch, batch_idx, mode):
+    def log_audio(self, mix, s1, s2, s1_pred, s2_pred, mode, **batch):
         audio_samples = {
-            "mix": self.writer.wandb.Audio(batch["mix"][0].detach().cpu().numpy(), sample_rate=16000),
-            "s1": self.writer.wandb.Audio(batch["s1"][0].detach().cpu().numpy(), sample_rate=16000),
-            "s2": self.writer.wandb.Audio(batch["s2"][0].detach().cpu().numpy(), sample_rate=16000),
-            "s1_pred": self.writer.wandb.Audio(batch["s1_pred"][0].detach().cpu().numpy(), sample_rate=16000),
-            "s2_pred": self.writer.wandb.Audio(batch["s2_pred"][0].detach().cpu().numpy(), sample_rate=16000),
+            "mix": self.writer.wandb.Audio(mix[0].detach().cpu().numpy(), sample_rate=16000),
+            "s1": self.writer.wandb.Audio(s1[0].detach().cpu().numpy(), sample_rate=16000),
+            "s2": self.writer.wandb.Audio(s2[0].detach().cpu().numpy(), sample_rate=16000),
+            "s1_pred": self.writer.wandb.Audio(s1_pred[0].detach().cpu().numpy(), sample_rate=16000),
+            "s2_pred": self.writer.wandb.Audio(s2_pred[0].detach().cpu().numpy(), sample_rate=16000),
         }
 
         audio_df = pd.DataFrame([audio_samples]) 
         self.writer.add_table(f"{mode}/audio_table", audio_df)
 
+        # logging scheme might be different for different partitions
+        if mode == "train":  # the method is called only every self.log_step steps
+            # TODO: add logging
+            # Log Stuff
+            pass
+        else:
+            # Log Stuff
+            # TODO: add logging
+            pass
+
+    # TODO: write and refactor so its only applied when working with voicefilter (otherwise there's no s{i}_spec_pred)
+    def log_spectrogram(self, mix_spectrogram, s1_spec_true, s2_spec_true, s1_spec_pred, s2_spec_pred, mode, **batch):
+        pass

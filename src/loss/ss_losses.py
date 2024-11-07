@@ -7,7 +7,14 @@ class BaseSSLoss(nn.Module):
         super().__init__()
         self.loss = loss
 
-    def forward(self, s1_pred: torch.Tensor, s2_pred: torch.Tensor, s1: torch.Tensor, s2: torch.Tensor, **batch):
+    def forward(
+        self,
+        s1_pred: torch.Tensor,
+        s2_pred: torch.Tensor,
+        s1: torch.Tensor,
+        s2: torch.Tensor,
+        **batch
+    ):
         """
         Applies PIT on self.loss
         """
@@ -21,18 +28,34 @@ class BaseSSLoss(nn.Module):
 
 class MSESpecLoss(BaseSSLoss):
     def __init__(self):
-        loss = nn.MSELoss()
+        loss = nn.MSELoss(reduction="mean")
         super().__init__(loss)
 
     def forward(
         self,
-        s1_pred: torch.Tensor,
-        s2_pred: torch.Tensor,
-        s1_spectrogram: torch.Tensor,
-        s2_spectrogram: torch.Tensor,
+        s1_spec_pred: torch.Tensor,
+        s2_spec_pred: torch.Tensor,
+        s1_spec_true: torch.Tensor,
+        s2_spec_true: torch.Tensor,
         **batch
     ):
-        return super().forward(s1_pred, s2_pred, s1_spectrogram, s2_spectrogram)
+        return super().forward(s1_pred=s1_spec_pred, s2_pred=s2_spec_pred, s1=s1_spec_true, s2=s2_spec_true)
+
+
+class L1SpecLoss(BaseSSLoss):
+    def __init__(self):
+        loss = nn.L1Loss(reduction="mean")
+        super().__init__(loss)
+
+    def forward(
+        self,
+        s1_spec_pred: torch.Tensor,
+        s2_spec_pred: torch.Tensor,
+        s1_spec_true: torch.Tensor,
+        s2_spec_true: torch.Tensor,
+        **batch
+    ):
+        return super().forward(s1_pred=s1_spec_pred, s2_pred=s2_spec_pred, s1=s1_spec_true, s2=s2_spec_true)
 
 
 class MSEWavLoss(BaseSSLoss):
@@ -40,16 +63,14 @@ class MSEWavLoss(BaseSSLoss):
         loss = nn.MSELoss()
         super().__init__(loss)
 
-    def forward(self, s1_pred: torch.Tensor, s2_pred: torch.Tensor, s1: torch.Tensor, s2: torch.Tensor, **batch):
-        return super().forward(s1_pred, s2_pred, s1, s2)
-
-
-class MAEWavLoss(BaseSSLoss):
-    def __init__(self):
-        loss = nn.L1Loss()
-        super().__init__(loss)
-
-    def forward(self, s1_pred: torch.Tensor, s2_pred: torch.Tensor, s1: torch.Tensor, s2: torch.Tensor, **batch):
+    def forward(
+        self,
+        s1_pred: torch.Tensor,
+        s2_pred: torch.Tensor,
+        s1: torch.Tensor,
+        s2: torch.Tensor,
+        **batch
+    ):
         return super().forward(s1_pred, s2_pred, s1, s2)
 
 

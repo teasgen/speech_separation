@@ -1,0 +1,4 @@
+_target_: src.model.VoiceFilter
+input_size: 201
+lipreader_path: /kaggle/working/speech_separation/lrw_snv1x_tcn1x.pth
+lipreader_config: /kaggle/working/speech_separation/src/lipreader/configs/lrw_snv1x_tcn1x.json

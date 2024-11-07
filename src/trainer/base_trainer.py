@@ -29,7 +29,7 @@ class BaseTrainer:
         writer,
         epoch_len=None,
         skip_oom=True,
-        batch_transforms=None,
+        batch_transforms=None
     ):
         """
         Args:
@@ -61,6 +61,7 @@ class BaseTrainer:
         self.cfg_trainer = self.config.trainer
 
         self.device = device
+        
         self.skip_oom = skip_oom
 
         self.logger = logger
@@ -141,6 +142,12 @@ class BaseTrainer:
 
         if config.trainer.get("from_pretrained") is not None:
             self._from_pretrained(config.trainer.get("from_pretrained"))
+
+        if config.trainer.get("stft") is not None:
+            self.n_fft = config.trainer.get("n_fft")
+            self.hop_length = config.trainer.get("hop_length")
+            self.window = torch.hann_window(config.trainer.get("n_fft")).to(device)
+            print(f"{'*'*35}\nWINDOW PUT ON DEVICE: {self.window.device}\n{'*'*35}")
 
     def train(self):
         """

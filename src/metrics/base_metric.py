@@ -1,5 +1,7 @@
 from abc import abstractmethod
+
 import torch
+
 
 class BaseMetric:
     """
@@ -36,7 +38,14 @@ class SS2BaseMetric:
         self.result_function = min if lower_better else max
 
     @abstractmethod
-    def forward(self, s1_pred: torch.Tensor, s2_pred: torch.Tensor, s1: torch.Tensor, s2: torch.Tensor, **batch):
+    def forward(
+        self,
+        s1_pred: torch.Tensor,
+        s2_pred: torch.Tensor,
+        s1: torch.Tensor,
+        s2: torch.Tensor,
+        **batch
+    ):
         """
         Defines PIT metric calculation logic for a given batch.
         Can use external functions (like TorchMetrics) or custom ones.

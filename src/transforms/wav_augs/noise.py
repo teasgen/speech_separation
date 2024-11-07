@@ -1,5 +1,5 @@
-from torch import Tensor, nn
 import torch_audiomentations
+from torch import Tensor, nn
 
 
 class ColoredNoise(nn.Module):

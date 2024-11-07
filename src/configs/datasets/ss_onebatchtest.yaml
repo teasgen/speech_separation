@@ -1,0 +1,14 @@
+train:
+  limit: 10
+  _target_: src.datasets.SSDataset
+  part: "val"
+  audio_dir: /Users/andreypetukhov/Documents/Машинное-обучение/AVSS/dla_dataset/audio
+  video_dir: /Users/andreypetukhov/Documents/Машинное-обучение/AVSS/dla_dataset/mouths
+  instance_transforms: ${transforms.instance_transforms.train}
+val:
+  limit: 10
+  _target_: src.datasets.SSDataset
+  part: "val"
+  audio_dir: /Users/andreypetukhov/Documents/Машинное-обучение/AVSS/dla_dataset/audio
+  video_dir: /Users/andreypetukhov/Documents/Машинное-обучение/AVSS/dla_dataset/mouths
+  instance_transforms: ${transforms.instance_transforms.inference}
