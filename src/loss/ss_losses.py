@@ -28,7 +28,7 @@ class BaseSSLoss(nn.Module):
 
 class MSESpecLoss(BaseSSLoss):
     def __init__(self):
-        loss = nn.MSELoss(reduction="mean")
+        loss = nn.MSELoss(reduction="sum")
         super().__init__(loss)
 
     def forward(
@@ -46,7 +46,7 @@ class MSESpecLoss(BaseSSLoss):
 
 class L1SpecLoss(BaseSSLoss):
     def __init__(self):
-        loss = nn.L1Loss(reduction="mean")
+        loss = nn.L1Loss(reduction="sum")
         super().__init__(loss)
 
     def forward(
