@@ -39,7 +39,9 @@ class MSESpecLoss(BaseSSLoss):
         s2_spec_true: torch.Tensor,
         **batch
     ):
-        return super().forward(s1_pred=s1_spec_pred, s2_pred=s2_spec_pred, s1=s1_spec_true, s2=s2_spec_true)
+        return super().forward(
+            s1_pred=s1_spec_pred, s2_pred=s2_spec_pred, s1=s1_spec_true, s2=s2_spec_true
+        )
 
 
 class L1SpecLoss(BaseSSLoss):
@@ -55,7 +57,9 @@ class L1SpecLoss(BaseSSLoss):
         s2_spec_true: torch.Tensor,
         **batch
     ):
-        return super().forward(s1_pred=s1_spec_pred, s2_pred=s2_spec_pred, s1=s1_spec_true, s2=s2_spec_true)
+        return super().forward(
+            s1_pred=s1_spec_pred, s2_pred=s2_spec_pred, s1=s1_spec_true, s2=s2_spec_true
+        )
 
 
 class MSEWavLoss(BaseSSLoss):
@@ -100,5 +104,12 @@ class SiSNRWavLoss(BaseSSLoss):
         loss = SiSNRLoss()
         super().__init__(loss)
 
-    def forward(self, s1_pred: torch.Tensor, s2_pred: torch.Tensor, s1: torch.Tensor, s2: torch.Tensor, **batch):
+    def forward(
+        self,
+        s1_pred: torch.Tensor,
+        s2_pred: torch.Tensor,
+        s1: torch.Tensor,
+        s2: torch.Tensor,
+        **batch
+    ):
         return super().forward(s1_pred, s2_pred, s1, s2)

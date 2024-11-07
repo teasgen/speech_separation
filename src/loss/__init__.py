@@ -1,2 +1,8 @@
 from src.loss.example import ExampleLoss
-from src.loss.ss_losses import MSESpecLoss, L1SpecLoss, MSEWavLoss, MAEWavLoss, SiSNRWavLoss
+from src.loss.ss_losses import (
+    L1SpecLoss,
+    MAEWavLoss,
+    MSESpecLoss,
+    MSEWavLoss,
+    SiSNRWavLoss,
+)
