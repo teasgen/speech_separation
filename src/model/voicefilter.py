@@ -13,10 +13,6 @@ class VoiceFilter(nn.Module):
         super(VoiceFilter, self).__init__()
 
         self.lipreader = init_lipreader(lipreader_config, lipreader_path)
-        for param in self.lipreader.parameters():
-            param.requires_grad = False  # to use a frozen lipreader
-        self.lipreader.eval()
-
         self.preprocessing_func = get_preprocessing_pipelines(modality="video")["test"]
 
         # gru layer for lip embeddings
@@ -143,11 +139,6 @@ class VoiceFilter(nn.Module):
             # outputs[f"s{i}_mask"] = mask # TODO: maybe log mask (?)
 
         return outputs
-
-    def train(self, mode=True):
-        # keeping lipreader in eval mode
-        super(VoiceFilter, self).train(mode)
-        self.lipreader.eval()
 
     def __str__(self):
         """
