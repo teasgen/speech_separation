@@ -9,17 +9,12 @@ from src.utils.init_utils import init_lipreader
 
 
 class VoiceFilter(nn.Module):
-    def __init__(
-            self,
-            input_size: int,
-            lipreader_path: str,
-            lipreader_config: str
-    ):
+    def __init__(self, input_size: int, lipreader_path: str, lipreader_config: str):
         super(VoiceFilter, self).__init__()
 
         self.lipreader = init_lipreader(lipreader_config, lipreader_path)
         for param in self.lipreader.parameters():
-            param.requires_grad = False # to use a frozen lipreader
+            param.requires_grad = False  # to use a frozen lipreader
         self.lipreader.eval()
 
         self.preprocessing_func = get_preprocessing_pipelines(modality="video")["test"]
@@ -27,7 +22,7 @@ class VoiceFilter(nn.Module):
         # gru layer for lip embeddings
         # TODO: refactor 1024 to arbitrary embed_size from lipreader
         self.gru = nn.GRU(
-            input_size=1024, # video embedding size per frame, needs adjustment for different lipreaders
+            input_size=1024,  # video embedding size per frame, needs adjustment for different lipreaders
             hidden_size=input_size,
             num_layers=2,
             bidirectional=True,
@@ -75,20 +70,18 @@ class VoiceFilter(nn.Module):
 
         # lstm for mask
         self.lstm = nn.LSTM(
-            input_size=9 * input_size,
-            hidden_size=400,
-            batch_first=True
+            input_size=9 * input_size, hidden_size=400, batch_first=True
         )
 
         # fc for output
         self.fc = nn.Sequential(
             nn.ReLU(),
             nn.Linear(400, 600),
-            nn.Dropout2d(p=0.35), #add for regularization
+            nn.Dropout2d(p=0.35),  # add for regularization
             nn.ReLU(),
             nn.Linear(600, input_size),
-            nn.Sigmoid()
-        ) #changed this
+            nn.Sigmoid(),
+        )  # changed this
 
     def forward(
         self, mix_magnitude, s1_video: torch.tensor, s2_video: torch.tensor, **batch
@@ -123,12 +116,12 @@ class VoiceFilter(nn.Module):
 
         # mix_magnitude.size() = [B, H, W] = [10, 201, 321]
         x = mix_magnitude.unsqueeze(1)
-        x = self.cnn_layers(x) # [B, C, H, W]
+        x = self.cnn_layers(x)  # [B, C, H, W]
         B, C, H, W = x.shape
 
         x = x.permute(0, 3, 2, 1).contiguous()  # [B, W, H, C] = [10, 321, 201, 8]
         # x = x.view(B, W, -1)  # [B, W, H * C]
-        x = x.view(B, C * H, W) # [B, C * H, W]
+        x = x.view(B, C * H, W)  # [B, C * H, W]
 
         # making masks
         outputs = {}
@@ -136,15 +129,21 @@ class VoiceFilter(nn.Module):
             dvector_expanded = dvector.unsqueeze(-1).expand(
                 -1, -1, W
             )  # [B, input_size, W]
-            concat = torch.cat((x, dvector_expanded), dim=1)  # [B, C*H + input_size, W] = [10, 1280, 321]
-            lstm_out, _ = self.lstm(concat.transpose(1, 2))  # [B, W, 400] = [10, 321, 400]
+            concat = torch.cat(
+                (x, dvector_expanded), dim=1
+            )  # [B, C*H + input_size, W] = [10, 1280, 321]
+            lstm_out, _ = self.lstm(
+                concat.transpose(1, 2)
+            )  # [B, W, 400] = [10, 321, 400]
             mask = self.fc(lstm_out)  # [B, W, H] = [10, 321, 201]
             mask = mask.transpose(1, 2)  # [B, H, W] = [10, 201, 321]
-            outputs[f"s{i}_spec_pred"] = mask * mix_magnitude  # [B, H, W] = [10, 201, 321]
+            outputs[f"s{i}_spec_pred"] = (
+                mask * mix_magnitude
+            )  # [B, H, W] = [10, 201, 321]
             # outputs[f"s{i}_mask"] = mask # TODO: maybe log mask (?)
 
         return outputs
-    
+
     def train(self, mode=True):
         # keeping lipreader in eval mode
         super(VoiceFilter, self).train(mode)

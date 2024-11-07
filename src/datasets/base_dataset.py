@@ -105,21 +105,14 @@ class BaseDataset(Dataset):
         instance_data.update({"mix_spectrogram": mix_spectrogram})
 
         mix_magnitude, mix_phase = self.get_magnitude(mix_audio)
-        instance_data.update({
-            "mix_magnitude": mix_magnitude,
-            "mix_phase": mix_phase
-        })
+        instance_data.update({"mix_magnitude": mix_magnitude, "mix_phase": mix_phase})
         # now we have phase data
 
         s1_spec_true, s1_phase = self.get_magnitude(s1_audio)
-        instance_data.update({
-            "s1_spec_true": s1_spec_true
-        })
+        instance_data.update({"s1_spec_true": s1_spec_true})
 
         s2_spec_true, s2_phase = self.get_magnitude(s2_audio)
-        instance_data.update({
-            "s2_spec_true": s2_spec_true
-        })
+        instance_data.update({"s2_spec_true": s2_spec_true})
         # for MSE spec loss calculation - for size consistency
 
         s1_spectrogram = self.get_spectrogram(s1_audio)
@@ -173,7 +166,7 @@ class BaseDataset(Dataset):
             win_length=self.n_fft,
             window=torch.hann_window(self.n_fft),
             center=True,
-            return_complex=True
+            return_complex=True,
         )
         magnitude, phase = torch.abs(stft), torch.angle(stft)
         spec = 20.0 * torch.log10(torch.clamp(magnitude, min=1e-5)) - 20

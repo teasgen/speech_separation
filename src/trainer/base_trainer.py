@@ -29,7 +29,7 @@ class BaseTrainer:
         writer,
         epoch_len=None,
         skip_oom=True,
-        batch_transforms=None
+        batch_transforms=None,
     ):
         """
         Args:
@@ -61,7 +61,7 @@ class BaseTrainer:
         self.cfg_trainer = self.config.trainer
 
         self.device = device
-        
+
         self.skip_oom = skip_oom
 
         self.logger = logger

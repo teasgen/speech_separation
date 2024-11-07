@@ -178,16 +178,17 @@ def init_lipreader(config, path):
             "width_mult": args_loaded.get("tcn_width_mult", 1),
         }
     else:
-        tcn_options={}
+        tcn_options = {}
     if args_loaded.get("densetcn_block_config", ""):
-        densetcn_options = {'block_config': args_loaded['densetcn_block_config'],
-                            'growth_rate_set': args_loaded['densetcn_growth_rate_set'],
-                            'reduced_size': args_loaded['densetcn_reduced_size'],
-                            'kernel_size_set': args_loaded['densetcn_kernel_size_set'],
-                            'dilation_size_set': args_loaded['densetcn_dilation_size_set'],
-                            'squeeze_excitation': args_loaded['densetcn_se'],
-                            'dropout': args_loaded['densetcn_dropout'],
-                            }
+        densetcn_options = {
+            "block_config": args_loaded["densetcn_block_config"],
+            "growth_rate_set": args_loaded["densetcn_growth_rate_set"],
+            "reduced_size": args_loaded["densetcn_reduced_size"],
+            "kernel_size_set": args_loaded["densetcn_kernel_size_set"],
+            "dilation_size_set": args_loaded["densetcn_dilation_size_set"],
+            "squeeze_excitation": args_loaded["densetcn_se"],
+            "dropout": args_loaded["densetcn_dropout"],
+        }
     else:
         densetcn_options = {}
 

@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import torch
 
+
 class WandBWriter:
     """
     Class for experiment tracking via WandB.
@@ -179,7 +180,6 @@ class WandBWriter:
             },
             step=self.step,
         )
-
 
     def add_text(self, text_name, text):
         """
