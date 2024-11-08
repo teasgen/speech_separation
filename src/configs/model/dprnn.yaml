@@ -1,9 +1,8 @@
 _target_: src.model.DPRNNEncDec
 num_features: 64
 kernel_size_enc: 2
-hidden_channels: 128
+hidden_dim: 128
 num_blocks: 6
 chunk_size: 250
 step_size: 125
-norm: True
 bidir: True

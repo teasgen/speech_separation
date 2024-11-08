@@ -1,0 +1,10 @@
+_target_: src.model.DPTNEncDec
+num_features: 64
+kernel_size_enc: 7
+hidden_dim: 128
+num_blocks: 6
+chunk_size: 150
+step_size: 75
+num_heads: 4
+dropout: 0.1
+bidir: True

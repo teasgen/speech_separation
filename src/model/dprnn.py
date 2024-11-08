@@ -8,20 +8,18 @@ class IntraChunkRNN(nn.Module):
     """
     The intra-chunk bi-directional RNN is first applied to individual chunks in parallel to process local information.
     """
-    def __init__(self, num_features, hidden_channels, norm=True):
+
+    def __init__(self, num_features, hidden_dim):
         super().__init__()
 
-        self.num_features, self.hidden_channels = num_features, hidden_channels
-        self.norm = norm
+        self.num_features, self.hidden_dim = num_features, hidden_dim
 
         # always bidirectional
-        num_directions = 2
-        self.rnn = nn.LSTM(input_size=num_features, hidden_size=hidden_channels, batch_first=True, bidirectional=True)
+        self.rnn = nn.LSTM(input_size=num_features, hidden_size=hidden_dim, batch_first=True, bidirectional=True)
 
-        self.fc = nn.Linear(num_directions * hidden_channels, num_features)
+        self.fc = nn.Linear(hidden_dim * 2, num_features)
 
-        if self.norm:
-            self.norm1d = nn.LayerNorm(num_features) # TODO: change to global?
+        self.norm1d = nn.LayerNorm(num_features)  # TODO: change to global?
 
     def forward(self, data):
         """
@@ -42,8 +40,7 @@ class IntraChunkRNN(nn.Module):
         x, _ = self.rnn(x)
         x = self.fc(x)
         x = rearrange(x, "(b s) chunk_size n -> b (s chunk_size) n", chunk_size=chunk_size, s=S)
-        if self.norm:
-            x = self.norm1d(x)
+        x = self.norm1d(x)
         x = rearrange(x, "b (s chunk_size) n -> b n s chunk_size", chunk_size=chunk_size, s=S)
         output = x + residual
 
@@ -54,19 +51,16 @@ class InterChunkRNN(nn.Module):
     """
     The inter-chunk RNN is then applied across the chunks to capture global dependency.
     """
-    def __init__(self, num_features, hidden_channels, bidir, norm=True):
+
+    def __init__(self, num_features, hidden_dim, bidir):
         super().__init__()
 
-        self.num_features, self.hidden_channels = num_features, hidden_channels
-        self.norm = norm
+        self.num_features, self.hidden_dim = num_features, hidden_dim
 
-        num_directions = 2 if bidir else 1
+        self.rnn = nn.LSTM(input_size=num_features, hidden_size=hidden_dim, batch_first=True, bidirectional=bidir)
+        self.fc = nn.Linear(hidden_dim * (bidir + 1), num_features)
 
-        self.rnn = nn.LSTM(input_size=num_features, hidden_size=hidden_channels, batch_first=True, bidirectional=bidir)
-        self.fc = nn.Linear(num_directions * hidden_channels, num_features)
-
-        if self.norm:
-            self.norm1d = nn.LayerNorm(num_features) # TODO: change to global?
+        self.norm1d = nn.LayerNorm(num_features)  # TODO: change to global?
 
     def forward(self, data):
         """
@@ -87,8 +81,7 @@ class InterChunkRNN(nn.Module):
         x, _ = self.rnn(x)
         x = self.fc(x)
         x = rearrange(x, "(b chunk_size) s n -> b (chunk_size s) n", chunk_size=chunk_size, s=S)
-        if self.norm:
-            x = self.norm1d(x)
+        x = self.norm1d(x)
         x = rearrange(x, "b (chunk_size s) n -> b n s chunk_size", chunk_size=chunk_size, s=S)
 
         output = x + residual
@@ -100,11 +93,12 @@ class DPRNNBlock(nn.Module):
     """
     Read https://arxiv.org/pdf/1910.06379 2.1. Model Design for more information
     """
-    def __init__(self, num_features, hidden_channels, bidir, norm=True):
+
+    def __init__(self, num_features, hidden_dim, bidir):
         super().__init__()
 
-        self.intra_chunk_block = IntraChunkRNN(num_features, hidden_channels, norm=norm)
-        self.inter_chunk_block = InterChunkRNN(num_features, hidden_channels, norm=norm, bidir=bidir)
+        self.intra_chunk_block = IntraChunkRNN(num_features, hidden_dim)
+        self.inter_chunk_block = InterChunkRNN(num_features, hidden_dim, bidir=bidir)
 
     def forward(self, data):
         """
@@ -170,7 +164,7 @@ class OverlapAdd(nn.Module):
 
 
 class DPRNN(nn.Module):
-    def __init__(self, num_features, hidden_channels, num_blocks=6, chunk_size=10, step_size=5, norm=True, bidir=False):
+    def __init__(self, num_features, hidden_dim, num_blocks=6, chunk_size=10, step_size=5, bidir=False):
         super().__init__()
 
         self.chunk_size = chunk_size
@@ -181,15 +175,26 @@ class DPRNN(nn.Module):
         self.model = nn.Sequential()
 
         for _ in range(num_blocks):
-            self.model.append(DPRNNBlock(num_features, hidden_channels, norm=norm, bidir=bidir))
+            self.model.append(DPRNNBlock(num_features, hidden_dim, bidir=bidir))
 
         self.speakers_separation = nn.Sequential(
             nn.PReLU(),
             nn.Conv2d(num_features, 2 * num_features, 1),
         )
 
+        # self.output_gate = nn.Sequential(
+        #     nn.Conv1d(num_features, num_features, 1),
+        #     nn.Sigmoid(),
+        # )
+
+        # self.output = nn.Sequential(
+        #     nn.Conv1d(num_features, num_features, 1),
+        #     nn.Tanh(),
+        # )
+
         self.postprocessing = nn.Sequential(
             nn.Conv1d(num_features, num_features, 1),
+            # nn.ReLU(),
         )
 
     def forward(self, data):
@@ -216,6 +221,7 @@ class DPRNN(nn.Module):
 
         output = output.view(bs, 2, num_features, ts).transpose(0, 1)
 
+        # output = [self.postprocessing(self.output(x) * self.output_gate(x)) for x in output]
         output = [self.postprocessing(x) for x in output]
 
         return output
@@ -228,15 +234,15 @@ class DPRNNEncDec(nn.Module):
     2. Encodes latent wav representation & separate for 2 speakers
     3. Decompressing to original length using transpose conv1d
     """
+
     def __init__(
         self,
         num_features=64,
         kernel_size_enc=2,
-        hidden_channels=32,
+        hidden_dim=32,
         num_blocks=6,
         chunk_size=10,
         step_size=5,
-        norm=True,
         bidir=True,
     ):
         super().__init__()
@@ -244,11 +250,10 @@ class DPRNNEncDec(nn.Module):
         self.encoder = nn.Conv1d(1, num_features, kernel_size=kernel_size_enc, stride=kernel_size_enc // 2, bias=False)
         self.dprnn = DPRNN(
             num_features=num_features,
-            hidden_channels=hidden_channels,
+            hidden_dim=hidden_dim,
             num_blocks=num_blocks,
             chunk_size=chunk_size,
             step_size=step_size,
-            norm=norm,
             bidir=bidir,
         )
         self.decoder = nn.ConvTranspose1d(
@@ -256,12 +261,13 @@ class DPRNNEncDec(nn.Module):
         )
 
     def forward(self, mix, **batch):
-        mix = mix.unsqueeze(1)
+        mix = mix.unsqueeze(1)  # (batch_size, ts) -> (batch_size, 1, ts) for correct channels dimention
         encoded = self.encoder(mix)
         hidden = self.dprnn(encoded)  # list of 2
         preds = []
         for x in hidden:
-            x = self.decoder(x)
+            x = self.decoder(x + encoded)
+            # x = self.decoder(x * encoded)
             padding_needed = mix.shape[-1] - x.shape[-1]
             pad_left = padding_needed // 2
             pad_right = padding_needed - pad_left
@@ -274,9 +280,7 @@ class DPRNNEncDec(nn.Module):
         Model prints with the number of parameters.
         """
         all_parameters = sum([p.numel() for p in self.parameters()])
-        trainable_parameters = sum(
-            [p.numel() for p in self.parameters() if p.requires_grad]
-        )
+        trainable_parameters = sum([p.numel() for p in self.parameters() if p.requires_grad])
 
         result_info = super().__str__()
         result_info = result_info + f"\nAll parameters: {all_parameters}"
