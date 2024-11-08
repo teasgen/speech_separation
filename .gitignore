@@ -125,3 +125,6 @@ __MACOSX/
 
 # pth models
 *.pth
+
+# debug files
+debug.py
