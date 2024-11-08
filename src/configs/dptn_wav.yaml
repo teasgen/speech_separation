@@ -1,10 +1,10 @@
 defaults:
-  - model: dprnn
+  - model: dptn_wav
   - writer: wandb
   - metrics: ss
   - datasets: ss_dataset
   - dataloader: example
-  - transforms: ss_full_spec_augs
+  - transforms: ss_full_spec
   - _self_
 optimizer:
   _target_: torch.optim.AdamW
@@ -21,7 +21,7 @@ loss_function:
 trainer:
   log_step: 100
   n_epochs: 100
-  epoch_len: 625
+  epoch_len: 1250
   max_grad_norm: 10
   device_tensors: ["mix_spectrogram", "s1_spectrogram", "s2_spectrogram", "mix", "s1", "s2"] # which tensors should be on device (ex. GPU)
   resume_from: null # null or path to the checkpoint dir with *.pth and config.yaml
