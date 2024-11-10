@@ -14,28 +14,22 @@ class AudioProcessor(nn.Module):
         self.out_channels = out_channels
         self.kernel_size = kernel_size
 
-        cnn = nn.Conv2d(
-            in_channels=self.in_channels,
-            out_channels=self.out_channels,
-            kernel_size=self.kernel_size,
-            bias=True
-        )
-
-        gln1 = nn.GroupNorm(
-            num_groups=1,
-            num_channels=self.in_channels
-        )
-
-        gln2 = nn.GroupNorm(
-            num_groups=1,
-            num_channels=self.out_channels
-        )
-
         self.net = nn.Sequential(
-            gln1,
+            nn.GroupNorm(
+                num_groups=1,
+                num_channels=self.in_channels
+            ),
             nn.ReLU(),
-            cnn,
-            gln2,
+            nn.Conv2d(
+                in_channels=self.in_channels,
+                out_channels=self.out_channels,
+                kernel_size=self.kernel_size,
+                bias=True
+            ),
+            nn.GroupNorm(
+                num_groups=1,
+                num_channels=self.out_channels
+            ),
             nn.ReLU()
         )
 
