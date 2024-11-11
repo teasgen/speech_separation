@@ -1,5 +1,5 @@
 defaults:
-  - model: baseline_ss_model
+  - model: dual_rnn_model
   - writer: wandb
   - metrics: ss_cuda
   - datasets: ss_dataset_kaggle_onebatchtest
