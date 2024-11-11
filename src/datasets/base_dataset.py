@@ -75,6 +75,8 @@ class BaseDataset(Dataset):
         s2_audio = None
         s1_video = None
         s2_video = None
+        s1_embedding = None
+        s2_embedding = None
 
         if data_dict["s1_wav_path"] is not None:
             s1_wav_path = data_dict["s1_wav_path"]
@@ -87,8 +89,14 @@ class BaseDataset(Dataset):
             s1_video_path = data_dict["s1_video_path"]
             s1_video = self.load_video(s1_video_path)
 
+            s1_embedding_path = data_dict["s1_embedding_path"]
+            s1_embedding = self.load_video(s1_embedding_path)
+
             s2_video_path = data_dict["s2_video_path"]
             s2_video = self.load_video(s2_video_path)
+
+            s2_embedding_path = data_dict["s1_embedding_path"]
+            s2_embedding = self.load_video(s2_embedding_path)
 
         instance_data = {
             "mix": mix_audio,
@@ -96,6 +104,8 @@ class BaseDataset(Dataset):
             "s2": s2_audio,
             "s1_video": s1_video,
             "s2_video": s2_video,
+            "s1_embedding": s1_embedding,
+            "s2_embedding": s2_embedding,
             "audio_path": mix_wav_path,
         }
         # apply WAV augs before getting spec

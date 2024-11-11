@@ -1,14 +1,16 @@
 train:
-  limit: 10
+  limit: 2
   _target_: src.datasets.SSDataset
   part: "val"
-  audio_dir: /Users/andreypetukhov/Documents/Машинное-обучение/AVSS/dla_dataset/audio
-  video_dir: /Users/andreypetukhov/Documents/Машинное-обучение/AVSS/dla_dataset/mouths
+  audio_dir: /home/teasgen/dla/speech_separation/dla_dataset/audio
+  video_dir: /home/teasgen/dla/speech_separation/dla_dataset/mouths
+  embedding_dir: /home/teasgen/dla/speech_separation/dla_dataset/embeddings
   instance_transforms: ${transforms.instance_transforms.train}
 val:
-  limit: 10
+  limit: 2
   _target_: src.datasets.SSDataset
   part: "val"
-  audio_dir: /Users/andreypetukhov/Documents/Машинное-обучение/AVSS/dla_dataset/audio
-  video_dir: /Users/andreypetukhov/Documents/Машинное-обучение/AVSS/dla_dataset/mouths
+  audio_dir: /home/teasgen/dla/speech_separation/dla_dataset/audio
+  video_dir: /home/teasgen/dla/speech_separation/dla_dataset/mouths
+  embedding_dir: /home/teasgen/dla/speech_separation/dla_dataset/embeddings
   instance_transforms: ${transforms.instance_transforms.inference}
