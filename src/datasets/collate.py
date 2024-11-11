@@ -23,6 +23,8 @@ def collate_fn(dataset_items: list[dict]):
         # "s2_spec_true",
         "s1_video",
         "s2_video",
+        "s1_embedding",
+        "s2_embedding",
         "mix",
         "s1",
         "s2",
