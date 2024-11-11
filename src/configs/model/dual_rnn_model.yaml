@@ -1,1 +1,14 @@
-_target_: src.model.Dual_RNN_model
+_target_: src.model.
+in_channels: 256
+out_channels: 64 
+hidden_channels: 128
+kernel_size: 2
+video_kernel_size: 8
+include_video_features: false
+rnn_type: LSTM
+norm: ln
+dropout: 0
+bidirectional: true
+num_layers: 6
+K: 250
+num_spks: 2
