@@ -351,9 +351,8 @@ class BaseTrainer:
             batch (dict): dict-based batch containing the data from
                 the dataloader with some of the tensors on the device.
         """
-        for tensor_for_device in ["mix", "s1", "s2", "s1_video", "s2_video", "s1_embedding", "s2_embedding"]:
-            if tensor_for_device in batch and batch[tensor_for_device] is not None:
-                batch[tensor_for_device] = batch[tensor_for_device].to(self.device)
+        for tensor_for_device in self.cfg_trainer.device_tensors:
+            batch[tensor_for_device] = batch[tensor_for_device].to(self.device)
         return batch
 
     def transform_batch(self, batch):
