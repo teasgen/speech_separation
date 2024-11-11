@@ -15,6 +15,9 @@ class SSDatasetKaggle(BaseDataset):
         Args:
             part (str): partition name
         """
+        # TODO: REMOVE AFTER DEBUG
+        print(f"ROOT PATH: {ROOT_PATH}")
+        print(f"AUDIO_DIR: {ROOT_PATH / 'audio'}")
         if audio_dir is None:
             self._audio_dir = ROOT_PATH / "audio"
         else:
@@ -29,7 +32,6 @@ class SSDatasetKaggle(BaseDataset):
             self._embedding_dir = ROOT_PATH / "embedding"
         else:
             self._embedding_dir = Path(embedding_dir)
-
 
         self.contains_video = self._video_dir.exists()
         self._index_dir = Path("/kaggle/working")
@@ -55,8 +57,8 @@ class SSDatasetKaggle(BaseDataset):
 
         for wavname in os.listdir(mix_split_dir):
             id1, id2 = wavname.replace(".wav", "").split("_")
-
             mix_wav_path = mix_split_dir / wavname
+
             s1_wav_path = None
             s2_wav_path = None
             s1_video_path = None
@@ -67,20 +69,17 @@ class SSDatasetKaggle(BaseDataset):
             if os.path.exists(split_dir / "s1"):
                 s1_wav_path = split_dir / "s1" / wavname
                 s2_wav_path = split_dir / "s2" / wavname
-
                 s1_wav_path = str(s1_wav_path.absolute().resolve())
                 s2_wav_path = str(s2_wav_path.absolute().resolve())
 
             if self.contains_video:
                 s1_video_path = self._video_dir / f"{id1}.npz"
                 s2_video_path = self._video_dir / f"{id2}.npz"
-
                 s1_video_path = str(s1_video_path.absolute().resolve())
                 s2_video_path = str(s2_video_path.absolute().resolve())
 
                 s1_embedding_path = self._embedding_dir / f"{id1}.npz"
                 s2_embedding_path = self._embedding_dir / f"{id2}.npz"
-
                 s1_embedding_path = str(s1_embedding_path.absolute().resolve())
                 s2_embedding_path = str(s2_embedding_path.absolute().resolve())
 
@@ -101,4 +100,3 @@ class SSDatasetKaggle(BaseDataset):
             )
 
         return index
-    
