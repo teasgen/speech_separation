@@ -10,7 +10,7 @@ from src.utils.io_utils import ROOT_PATH, read_json, write_json
 
 
 class SSDatasetKaggle(BaseDataset):
-    def __init__(self, part="train", audio_dir=None, video_dir=None, *args, **kwargs):
+    def __init__(self, part="train", audio_dir=None, video_dir=None, embedding_dir=None, *args, **kwargs):
         """
         Args:
             part (str): partition name
@@ -22,12 +22,19 @@ class SSDatasetKaggle(BaseDataset):
             self._audio_dir = ROOT_PATH / "audio"
         else:
             self._audio_dir = Path(audio_dir)
+
         if video_dir is None:
             self._video_dir = ROOT_PATH / "mouth"
         else:
             self._video_dir = Path(video_dir)
 
+        if embedding_dir is None:
+            self._embedding_dir = ROOT_PATH / "embedding"
+        else:
+            self._embedding_dir = Path(embedding_dir)
+
         self.contains_video = self._video_dir.exists()
+        self.contains_embedding = self._embedding_dir.exists()
         self._index_dir = Path("/kaggle/working")
 
         index = self._get_or_load_index(part)
@@ -57,6 +64,8 @@ class SSDatasetKaggle(BaseDataset):
             s2_wav_path = None
             s1_video_path = None
             s2_video_path = None
+            s1_embedding_path = None
+            s2_embedding_path = None
 
             if os.path.exists(split_dir / "s1"):
                 s1_wav_path = split_dir / "s1" / wavname
@@ -70,6 +79,12 @@ class SSDatasetKaggle(BaseDataset):
                 s1_video_path = str(s1_video_path.absolute().resolve())
                 s2_video_path = str(s2_video_path.absolute().resolve())
 
+            if self.contains_embedding:
+                s1_embedding_path = self._embedding_dir / f"{id1}.npz"
+                s2_embedding_path = self._embedding_dir / f"{id2}.npz"
+                s1_embedding_path = str(s1_embedding_path.absolute().resolve())
+                s2_embedding_path = str(s2_embedding_path.absolute().resolve())
+
             t_info = torchaudio.info(str(mix_wav_path))
             length = t_info.num_frames / t_info.sample_rate
 
@@ -80,6 +95,8 @@ class SSDatasetKaggle(BaseDataset):
                     "s2_wav_path": s2_wav_path,
                     "s1_video_path": s1_video_path,
                     "s2_video_path": s2_video_path,
+                    "s1_embedding_path": s1_embedding_path,
+                    "s2_embedding_path": s2_embedding_path,
                     "audio_len": length,
                 }
             )

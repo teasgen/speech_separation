@@ -6,7 +6,7 @@ defaults:
   - transforms: ss_full_spec
   - _self_
 inferencer:
-  device_tensors: ["mix_spectrogram", "s1_spectrogram", "s2_spectrogram", "mix", "s1", "s2"] # which tensors should be on device (ex. GPU)
+  device_tensors: ["mix_spectrogram", "s1_spectrogram", "s2_spectrogram", "mix", "s1", "s2", "s2_video", "s1_embedding", "s1_embedding", "s2_embedding"] # which tensors should be on device (ex. GPU)
   device: auto # device name or "auto"
   save_path: "example" # any name here, can be a dataset name
   seed: 1

@@ -75,6 +75,8 @@ class BaseDataset(Dataset):
         s2_audio = None
         s1_video = None
         s2_video = None
+        s1_embedding = None
+        s2_embedding = None
 
         if data_dict["s1_wav_path"] is not None:
             s1_wav_path = data_dict["s1_wav_path"]
@@ -90,12 +92,21 @@ class BaseDataset(Dataset):
             s2_video_path = data_dict["s2_video_path"]
             s2_video = self.load_video(s2_video_path)
 
+        if data_dict["s1_embedding_path"] is not None:
+            s1_embedding_path = data_dict["s1_embedding_path"]
+            s1_embedding = self.load_object(s1_embedding_path)
+
+            s2_embedding_path = data_dict["s2_embedding_path"]
+            s2_embedding = self.load_object(s2_embedding_path)
+
         instance_data = {
             "mix": mix_audio,
             "s1": s1_audio,
             "s2": s2_audio,
             "s1_video": s1_video,
             "s2_video": s2_video,
+            "s1_embedding": s1_embedding,
+            "s2_embedding": s2_embedding,
             "audio_path": mix_wav_path,
         }
         # apply WAV augs before getting spec
@@ -188,7 +199,14 @@ class BaseDataset(Dataset):
         Returns:
             data_object (Tensor):
         """
-        data_object = torch.load(path)
+        if path.endswith('.npy'):
+            data_object = torch.from_numpy(np.load(path))
+        elif path.endswith('.npz'):
+            with np.load(path) as data:
+                data_object = torch.from_numpy(data[next(iter(data))])
+        elif path.endswith('.pt') or path.endswith('.pth'):
+            data_object = torch.load(path)
+        
         return data_object
 
     def preprocess_data(
