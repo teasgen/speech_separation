@@ -34,6 +34,7 @@ class SSDatasetKaggle(BaseDataset):
             self._embedding_dir = Path(embedding_dir)
 
         self.contains_video = self._video_dir.exists()
+        self.contains_embedding = self._embedding_dir.exists()
         self._index_dir = Path("/kaggle/working")
 
         index = self._get_or_load_index(part)
@@ -78,6 +79,7 @@ class SSDatasetKaggle(BaseDataset):
                 s1_video_path = str(s1_video_path.absolute().resolve())
                 s2_video_path = str(s2_video_path.absolute().resolve())
 
+            if self.contains_embedding:
                 s1_embedding_path = self._embedding_dir / f"{id1}.npz"
                 s2_embedding_path = self._embedding_dir / f"{id2}.npz"
                 s1_embedding_path = str(s1_embedding_path.absolute().resolve())

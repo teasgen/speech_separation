@@ -91,14 +91,12 @@ class BaseDataset(Dataset):
 
             s2_video_path = data_dict["s2_video_path"]
             s2_video = self.load_video(s2_video_path)
-            
-        s1_embedding_path = data_dict.get("s1_embedding_path")
-        s2_embedding_path = data_dict.get("s2_embedding_path")
 
-        if s1_embedding_path is not None:
+        if data_dict["s1_embedding_path"] is not None:
+            s1_embedding_path = data_dict["s1_embedding_path"]
             s1_embedding = self.load_object(s1_embedding_path)
 
-        if s2_embedding_path is not None:
+            s2_embedding_path = data_dict["s2_embedding_path"]
             s2_embedding = self.load_object(s2_embedding_path)
 
         instance_data = {
