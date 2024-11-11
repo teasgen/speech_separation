@@ -199,10 +199,7 @@ class BaseDataset(Dataset):
         Returns:
             data_object (Tensor):
         """
-        if path.endswith('.npy'):
-            data_object = torch.from_numpy(np.load(path))
-        else:
-            data_object = torch.load(path)
+        data_object = torch.from_numpy(np.load(path))
         return data_object
 
     def preprocess_data(
