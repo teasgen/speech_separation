@@ -207,7 +207,7 @@ class BaseDataset(Dataset):
         elif path.endswith('.pt') or path.endswith('.pth'):
             data_object = torch.load(path)
         
-        return data_object
+        return data_object.unsqueeze(0)
 
     def preprocess_data(
         self, instance_data, special_keys=["get_spectrogram"], single_key=None
