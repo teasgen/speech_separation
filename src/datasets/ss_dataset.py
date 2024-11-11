@@ -35,6 +35,11 @@ class SSDataset(BaseDataset):
         else:
             self.contains_video = False
 
+        if self._embedding_dir.exists():
+            self.contains_embedding = True
+        else:
+            self.contains_embedding = False
+
         index = self._get_or_load_index(part)
 
         super().__init__(index, *args, **kwargs)
@@ -80,6 +85,7 @@ class SSDataset(BaseDataset):
                 s1_video_path = str(s1_video_path.absolute().resolve())
                 s2_video_path = str(s2_video_path.absolute().resolve())
 
+            if self.contains_embedding:
                 s1_embedding_path = self._embedding_dir / f"{id1}.npz"
                 s2_embedding_path = self._embedding_dir / f"{id2}.npz"
 
