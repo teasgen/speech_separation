@@ -199,7 +199,14 @@ class BaseDataset(Dataset):
         Returns:
             data_object (Tensor):
         """
-        data_object = torch.from_numpy(np.load(path))
+        if path.endswith('.npy'):
+            data_object = torch.from_numpy(np.load(path))
+        elif path.endswith('.npz'):
+            with np.load(path) as data:
+                data_object = torch.from_numpy(data[next(iter(data))])
+        elif path.endswith('.pt') or path.endswith('.pth'):
+            data_object = torch.load(path)
+        
         return data_object
 
     def preprocess_data(
