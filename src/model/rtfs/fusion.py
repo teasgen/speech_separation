@@ -28,8 +28,93 @@ class AudioNet(nn.Module):
         out_channels: int = 64,
         hidden_size: int = 64,
         kernel_size: int = 4,
-        stride: int = 2, # TODO: remove right to model
-        act_type: str = "PReLU", # TODO: remove
+        upsamples: int = 2
     ):
         super(AudioNet, self).__init__()
+
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.hidden_size = hidden_size
+        self.kernel_size = kernel_size
+        self.upsamples = upsamples
+        
+        self.pooling = nn.functional.adaptive_avg_pool2d
+        
+        self.gate = nn.Sequential(
+            nn.GroupNorm(
+                num_groups=1,
+                num_channels=self.in_channels
+            ),
+            nn.ReLU(),
+            nn.Conv2d(
+                in_channels=self.in_channels,
+                out_channels=self.in_channels,
+                kernel_size=1,
+                bias=False
+            ),
+            nn.GroupNorm(
+                num_groups=1,
+                num_channels=self.in_channels
+            ),
+            nn.ReLU(),
+        )
+
+        self.compressor = nn.Sequential(
+            nn.GroupNorm(
+                num_groups=1,
+                num_channels=self.in_channels
+            ),
+            nn.ReLU(),
+            nn.Conv2d(
+                in_channels=self.in_channels,
+                out_channels=self.hidden_size,
+                kernel_size=1
+            ),
+            nn.GroupNorm(
+                num_groups=1,
+                num_channels=self.hidden_size
+            ),
+            nn.ReLU(),
+        )
+
+        self.downsamples = nn.ModuleList()
+        self.fusions = nn.ModuleList()
+        self.concats = nn.ModuleList()
+
+        for i in range(self.upsamples):
+            self.downsamples.append(
+                nn.Sequential(
+                    nn.GroupNorm(
+                        num_groups=1,
+                        num_channels=self.hidden_size
+                    ),
+                    nn.ReLU(),
+                    nn.Conv2d(
+                        in_channels=self.hidden_size,
+                        out_channels=self.hidden_size,
+                        kernel_size=4,
+                        stride=1 if i == 0 else 2,
+                        bias=False
+                    ),
+                    nn.GroupNorm(
+                        num_groups=1,
+                        num_channels=self.hidden_size
+                    ),
+                    nn.ReLU(),
+                )
+            )
+
+            self.fusions.append(
+                # TODO: add injection fusion
+            )
+
+            self.concats.append(
+                # TODO: add InjectionMultiSum
+            )
+
+
+        self.global_extractor = nn.Sequential(
+            #TODO: add DPRNN, DPRNN, MultiHeadSelfAttention
+        )
+
 
