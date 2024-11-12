@@ -21,26 +21,22 @@ class AudioEncoder(nn.Module):
             in_channels=2,
             out_channels=self.out_channels,
             kernel_size=1,
-            bias=False
-        )
+            bias=False,)
 
-        gln1 = nn.GroupNorm(
-            num_groups=1,
-            num_channels=self.in_channels
-        )
+        norm1 = nn.InstanceNorm2d(
+            num_features=self.in_channels,
+            affine=True,)
 
-        gln2 = nn.GroupNorm(
-            num_groups=1,
-            num_channels=self.out_channels
-        )
+        norm2 = nn.InstanceNorm2d(
+            num_features=self.out_channels,
+            affine=True,)
 
         self.net = nn.Sequential(
-            gln1,
+            norm1,
             nn.ReLU(),
             cnn,
-            gln2,
-            nn.ReLU()
-        )
+            norm2,
+            nn.ReLU(),)
 
     def forward(self, mix: torch.Tensor):
         alpha = torch.stft(
@@ -48,8 +44,7 @@ class AudioEncoder(nn.Module):
             n_fft=self.n_fft,
             hop_length=self.hop_length,
             window=torch.hann_window(self.n_fft),
-            return_complex=True
-        )
+            return_complex=True,)
         # NOTE: spec is transposed! to follow paper notation
         complex_domain = torch.stack(
             [alpha.real, alpha.imag],

@@ -15,10 +15,7 @@ class AudioProcessor(nn.Module):
         self.kernel_size = kernel_size
 
         self.net = nn.Sequential(
-            nn.GroupNorm(
-                num_groups=1,
-                num_channels=self.in_channels
-            ),
+            nn.InstanceNorm2d(num_features=self.in_channels),
             nn.ReLU(),
             nn.Conv2d(
                 in_channels=self.in_channels,
@@ -26,11 +23,8 @@ class AudioProcessor(nn.Module):
                 kernel_size=self.kernel_size,
                 bias=True
             ),
-            nn.GroupNorm(
-                num_groups=1,
-                num_channels=self.out_channels
-            ),
-            nn.ReLU()
+            nn.InstanceNorm2d(num_features=self.out_channels),
+            nn.ReLU(),
         )
 
     def forward(self, x: torch.Tensor):
