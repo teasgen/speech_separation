@@ -144,7 +144,7 @@ class BaseDataset(Dataset):
 
     def load_video(self, path):
         data = np.load(path)
-        return torch.FloatTensor(data["data"]).unsqueeze(0)
+        return torch.FloatTensor(data["data"]).unsqueeze(0) #based on lipreader repo
 
     def get_spectrogram(self, audio):
         """
