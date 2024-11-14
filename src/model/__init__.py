@@ -4,5 +4,8 @@ from src.model.voicefilter import VoiceFilter
 from src.model.convtasnet import ConvTasNet
 from src.model.deepconvtasnet import DeepConvTasNet
 from src.model.deepavconvtasnet import DeepAVConvTasNet
+from src.model.dprnn import DPRNNEncDec
+from src.model.dptn import DPTNEncDec
+from src.model.dptn_wav import DPTNWavEncDec
 
 __all__ = ["BaselineModel", "SSBaselineModel", "VoiceFilter", "ConvTasNet", "DeepConvTasNet", "DeepAVConvTasNet"]
