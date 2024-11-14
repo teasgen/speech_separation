@@ -8,4 +8,14 @@ from src.model.dprnn import DPRNNEncDec
 from src.model.dptn import DPTNEncDec
 from src.model.dptn_wav import DPTNWavEncDec
 
-__all__ = ["BaselineModel", "SSBaselineModel", "VoiceFilter", "ConvTasNet", "DeepConvTasNet", "DeepAVConvTasNet"]
+__all__ = [
+    "BaselineModel",
+    "SSBaselineModel",
+    "VoiceFilter",
+    "ConvTasNet",
+    "DeepConvTasNet",
+    "DeepAVConvTasNet",
+    "DPRNNEncDec",
+    "DPTNEncDec",
+    "DPTNWavEncDec"
+]
