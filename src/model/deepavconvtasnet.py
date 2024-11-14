@@ -3,16 +3,27 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
+# https://arxiv.org/pdf/2002.08688
 class Encoder(nn.Module):
     def __init__(self, in_channels=1, out_channels=512, kernel_size=32, stride=16, bias=False):
         super(Encoder, self).__init__()
-        self.L=stride
-        self.conv1d = nn.Conv1d(in_channels, out_channels, kernel_size, stride=stride, bias=bias)
+        self.L = stride
+        self.sequential = nn.Sequential(
+            nn.Conv1d(in_channels, out_channels, kernel_size=kernel_size, stride=16),
+            nn.Conv1d(out_channels, out_channels, kernel_size=3, stride=1, dilation=1, padding=1),
+            nn.PReLU(),
+            nn.Conv1d(out_channels, out_channels, kernel_size=3, stride=1, dilation=2, padding=2),
+            nn.PReLU(),
+            nn.Conv1d(out_channels, out_channels, kernel_size=3, stride=1, dilation=4, padding=4),
+            nn.PReLU(),
+            nn.Conv1d(out_channels, out_channels, kernel_size=3, stride=1, dilation=8, padding=8),
+            nn.PReLU()
+        )
 
     def forward(self, x):
         x = x.unsqueeze(1)
         x = F.pad(x, (self.L, self.L*2), mode='constant', value=0)
-        return self.conv1d(x)
+        return self.sequential(x)
     
 
 class GlobalNorm(nn.Module):
@@ -87,32 +98,60 @@ class Decoder(nn.Module):
         super(Decoder, self).__init__()
         self.stride = stride
         self.kernel_size = kernel_size
+        self.sequential = nn.Sequential(
+            nn.ConvTranspose1d(N, N, kernel_size=3, stride=1, dilation=8, padding=8),
+            nn.PReLU(),
+            nn.ConvTranspose1d(N, N, kernel_size=3, stride=1, dilation=4, padding=4),
+            nn.PReLU(),
+            nn.ConvTranspose1d(N, N, kernel_size=3, stride=1, dilation=2, padding=2),
+            nn.PReLU(),
+            nn.ConvTranspose1d(N, N, kernel_size=3, stride=1, dilation=1, padding=1),
+            nn.PReLU(),
+            nn.ConvTranspose1d(N, out_channels, kernel_size=kernel_size, stride=stride, bias=True)
+        )
         self.deconv = nn.ConvTranspose1d(N, out_channels, kernel_size, stride=stride, bias=bias)
 
     def forward(self, x, batch_size):
-        x = self.deconv(x)
+        x = self.sequential(x)
         x = torch.index_select(
             x, 2, torch.arange(self.stride, x.shape[2] - self.kernel_size, device=x.device)
         )
         x = x.reshape(batch_size, 2, -1)
-
         return x
 
-class ConvTasNet(nn.Module):
-    def __init__(self, N=512, L=16):
+class DeepAVConvTasNet(nn.Module):
+    def __init__(
+            self, 
+            N=512, 
+            L=16,
+            video_emb_size=512,
+            hidden_video=128):
         super().__init__()
-        self.N = N
-        self.L = L
         self.encoder = Encoder()
         self.separator = Separator()
         self.decoder = Decoder()
+        self.visual_compression = nn.Linear(video_emb_size, hidden_video // 2)
+        self.video_ln = nn.LayerNorm(hidden_video)
 
-    def forward(self, mix, **batch):
+    def forward(self, mix, s1_embedding, s2_embedding, **batch):
         batch_size = mix.shape[0]
+
+        s1_embedding = self.visual_compression(
+            s1_embedding.permute(0, 2, 1)
+        )
+        s2_embedding = self.visual_compression(
+            s2_embedding.permute(0, 2, 1)
+        ) 
+
+        video = torch.concat([s1_embedding, s2_embedding], -1)
+        video = F.interpolate(
+            video.permute(0, 2, 1), size=mix.shape[-1], mode="linear", align_corners=False
+        ).permute(0, 2, 1)
+
         mix = self.encoder(mix)
+        mix = mix + self.video_ln(video).permute(0, 2, 1)
         mix = self.separator(mix)
         mix = self.decoder(mix, batch_size)
-        
         return {"s1_pred": mix[:, 0], "s2_pred": mix[:, 1]}
 
     def __str__(self):

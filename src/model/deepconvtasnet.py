@@ -111,13 +111,12 @@ class Decoder(nn.Module):
         )
         self.deconv = nn.ConvTranspose1d(N, out_channels, kernel_size, stride=stride, bias=bias)
 
-    def forward(self, x):
+    def forward(self, x, batch_size):
         x = self.sequential(x)
         x = torch.index_select(
             x, 2, torch.arange(self.stride, x.shape[2] - self.kernel_size, device=x.device)
         )
-        x = x.reshape(2, 2, -1)
-
+        x = x.reshape(batch_size, 2, -1)
         return x
 
 class DeepConvTasNet(nn.Module):
@@ -130,10 +129,10 @@ class DeepConvTasNet(nn.Module):
         self.decoder = Decoder()
 
     def forward(self, mix, **batch):
+        batch_size = mix.shape[0]
         mix = self.encoder(mix)
         mix = self.separator(mix)
-        mix = self.decoder(mix)
-        
+        mix = self.decoder(mix, batch_size)
         return {"s1_pred": mix[:, 0], "s2_pred": mix[:, 1]}
 
     def __str__(self):
