@@ -1,0 +1,13 @@
+defaults:
+  - model: dptn_wav_av
+  - metrics: ss_eval
+  - datasets: ss_dataset_val
+  - dataloader: example
+  - transforms: ss_full_spec
+  - _self_
+inferencer:
+  device_tensors: ["mix_spectrogram", "s1_spectrogram", "s2_spectrogram", "mix", "s1", "s2", "s1_embedding", "s2_embedding"] # which tensors should be on device (ex. GPU)
+  device: auto # device name or "auto"
+  save_path: "inferenced" # any name here, can be a dataset name
+  seed: 42
+  from_pretrained: "saved/av_dptn_wav_av_v1/model_best.pth"

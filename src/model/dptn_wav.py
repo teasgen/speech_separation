@@ -129,7 +129,7 @@ class DPTNWavEncDec(nn.Module):
 class DPTNAVWavEncDec(nn.Module):
     """
     Arch:
-    1. Compressing wav using conv1d & merges with video
+    1. Compressing wav using conv1d and merges with video
     2. Encodes latent wav representation & separate for 2 speakers
     3. Decompressing to original length using transpose conv1d
     """
