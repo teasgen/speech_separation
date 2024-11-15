@@ -124,3 +124,83 @@ class DPTNWavEncDec(nn.Module):
         result_info = result_info + f"\nTrainable parameters: {trainable_parameters}"
 
         return result_info
+
+
+class DPTNAVWavEncDec(nn.Module):
+    """
+    Arch:
+    1. Compressing wav using conv1d & merges with video
+    2. Encodes latent wav representation & separate for 2 speakers
+    3. Decompressing to original length using transpose conv1d
+    """
+
+    def __init__(
+        self,
+        num_features=64,
+        video_emb_size=1024,
+        hidden_video=128,
+        kernel_size_enc=2,
+        hidden_dim=32,
+        num_blocks=6,
+        chunk_size=10,
+        step_size=5,
+        num_heads=4,
+        dropout=0.1,
+        bidir=True,
+    ):
+        super().__init__()
+        # 50% overlap
+        self.encoder = nn.Conv1d(1, num_features, kernel_size=kernel_size_enc, stride=kernel_size_enc // 2, bias=False)
+        self.visual_compression = nn.Linear(video_emb_size, hidden_video // 2)
+        self.video_ln = nn.LayerNorm(hidden_video)
+        self.dprnn = DPTNWav(
+            num_features=num_features,
+            hidden_dim=hidden_dim,
+            num_blocks=num_blocks,
+            chunk_size=chunk_size,
+            step_size=step_size,
+            num_heads=num_heads,
+            dropout=dropout,
+            bidir=bidir,
+        )
+        self.decoder = nn.ConvTranspose1d(
+            num_features, 1, kernel_size=kernel_size_enc, stride=kernel_size_enc // 2, bias=False
+        )
+
+    def forward(self, mix, s1_embedding, s2_embedding, **batch):
+        mix = mix.unsqueeze(1)  # (batch_size, ts) -> (batch_size, 1, ts) for correct channels dimention
+        s1_embedding = self.visual_compression(
+            s1_embedding.permute(0, 2, 1)
+        )  # (batch_size, d, ts_v) -> (batch_size, ts_v, d)
+        s2_embedding = self.visual_compression(
+            s2_embedding.permute(0, 2, 1)
+        )  # (batch_size, d, ts_v) -> (batch_size, ts_v, d)
+        video = torch.concat([s1_embedding, s2_embedding], -1)  # (batch_size, ts_v, hidden_video)
+        encoded = self.encoder(mix)
+        video = F.interpolate(
+            video.permute(0, 2, 1), size=encoded.shape[-1], mode="linear", align_corners=False
+        ).permute(0, 2, 1)
+        encoded += self.video_ln(video).permute(0, 2, 1)
+        hidden = self.dprnn(encoded)  # list of 2
+        preds = []
+        for x in hidden:
+            x = self.decoder(x + encoded)
+            padding_needed = mix.shape[-1] - x.shape[-1]
+            pad_left = padding_needed // 2
+            pad_right = padding_needed - pad_left
+            x = torch.nn.functional.pad(x, (pad_left, pad_right))
+            preds.append(x.squeeze(1))
+        return {"s1_pred": preds[0], "s2_pred": preds[1]}
+
+    def __str__(self):
+        """
+        Model prints with the number of parameters.
+        """
+        all_parameters = sum([p.numel() for p in self.parameters()])
+        trainable_parameters = sum([p.numel() for p in self.parameters() if p.requires_grad])
+
+        result_info = super().__str__()
+        result_info = result_info + f"\nAll parameters: {all_parameters}"
+        result_info = result_info + f"\nTrainable parameters: {trainable_parameters}"
+
+        return result_info
