@@ -2,11 +2,11 @@
 
 import torch
 import torch.nn as nn
-from sru import SRU # NOTE: when cuda is accessible
+# from sru import SRU # NOTE: when cuda is accessible
 
 
 # dprnn basic block with lstm instead of sru
-class DPRNNBlock(nn.Module):
+class DPRNNUnit(nn.Module):
     def __init__(
         self,
         in_channels: int = 64,
@@ -15,7 +15,7 @@ class DPRNNBlock(nn.Module):
         kernel_size: int = 8,
         transpose: bool = True
     ):
-        super(DPRNNBlock, self).__init__()
+        super(DPRNNUnit, self).__init__()
         self.norm = nn.InstanceNorm2d(num_features=in_channels, affine=True)
         self.kernel_size = kernel_size
         self.sru = nn.LSTM(
@@ -166,7 +166,7 @@ class TFDecepticon(nn.Module):
         return x
     
 
-class RTFSBlock(nn.Module):
+class DPRNNBlock(nn.Module):
     def __init__(
         self,
         in_channels: int = 64,
@@ -177,16 +177,16 @@ class RTFSBlock(nn.Module):
         num_heads: int = 4,
         num_freqs: int = 64
     ):
-        super(RTFSBlock, self).__init__()
+        super(DPRNNBlock, self).__init__()
 
-        freq_dprnn = DPRNNBlock(
+        freq_dprnn = DPRNNUnit(
             in_channels=in_channels,
             num_layers=num_layers,
             hidden_size=hidden_size_rnn,
             kernel_size=kernel_size,
             transpose=True
         )
-        time_dprnn = DPRNNBlock(
+        time_dprnn = DPRNNUnit(
             in_channels=in_channels,
             num_layers=num_layers,
             hidden_size=hidden_size_rnn,
