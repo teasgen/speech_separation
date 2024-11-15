@@ -125,7 +125,7 @@ class DeepAVConvTasNet(nn.Module):
             N=512, 
             L=16,
             video_emb_size=512,
-            hidden_video=128):
+            hidden_video=512):
         super().__init__()
         self.encoder = Encoder()
         self.separator = Separator()
@@ -135,6 +135,7 @@ class DeepAVConvTasNet(nn.Module):
 
     def forward(self, mix, s1_embedding, s2_embedding, **batch):
         batch_size = mix.shape[0]
+        mix = self.encoder(mix)
 
         s1_embedding = self.visual_compression(
             s1_embedding.permute(0, 2, 1)
@@ -147,9 +148,9 @@ class DeepAVConvTasNet(nn.Module):
         video = F.interpolate(
             video.permute(0, 2, 1), size=mix.shape[-1], mode="linear", align_corners=False
         ).permute(0, 2, 1)
+        video = self.video_ln(video).permute(0, 2, 1)
 
-        mix = self.encoder(mix)
-        mix = mix + self.video_ln(video).permute(0, 2, 1)
+        mix = mix + video
         mix = self.separator(mix)
         mix = self.decoder(mix, batch_size)
         return {"s1_pred": mix[:, 0], "s2_pred": mix[:, 1]}
