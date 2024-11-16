@@ -23,10 +23,10 @@ class AudioEncoder(nn.Module):
             nn.Conv2d(in_channels=out_channels, out_channels=out_channels, kernel_size=1, bias=False),
         )
 
-    def forward(self, complex_domain: torch.Tensor):        
-        embedding = self.net(complex_domain) # [B, C_out, T, F]
+    def forward(self, complex_spectrogram: torch.Tensor):        
+        encoded = self.net(complex_spectrogram) # [B, C_out, T, F]
 
-        return embedding
+        return encoded
 
 
 # dprnn basic block with lstm instead of sru
@@ -42,7 +42,7 @@ class DPRNNUnit(nn.Module):
         super(DPRNNUnit, self).__init__()
         self.norm = nn.InstanceNorm2d(num_features=in_channels, affine=True)
         self.kernel_size = kernel_size
-        self.sru = nn.LSTM(
+        self.lstm = nn.LSTM(
             input_size=in_channels * kernel_size,
             hidden_size=hidden_size,
             num_layers=num_layers,
@@ -66,10 +66,10 @@ class DPRNNUnit(nn.Module):
         x = self.norm(x)
         x = x.permute(0, 3, 1, 2).contiguous().view(B * F, C, T)
         x = x.unfold(dimension=2, size=self.kernel_size, step=1)  # [B*F, C, L, kernel_size]
+
         x = x.permute(2, 0, 1, 3)  # [L, B*F, C, kernel_size]
         x = x.reshape(-1, B * F, C * self.kernel_size)  # [L, B*F, C * kernel_size]
-
-        x, _ = self.sru(x)
+        x, _ = self.lstm(x)
         x = x.permute(1, 2, 0)  # [B*F, hidden_size*2, L]
 
         x = self.conv_transpose(x)
@@ -83,22 +83,28 @@ class DPRNNUnit(nn.Module):
         return x
 
 
-# LN basic block from https://arxiv.org/pdf/2209.03952
-class LNBlock(nn.Module):
-    def __init__(self, dims):
-        super(LNBlock, self).__init__()
-        # [out_channels, num_freqs]
-        param_size = [1, dims[0], 1, dims[1]]
-        self.gamma = nn.Parameter(torch.ones(*param_size))
-        self.beta = nn.Parameter(torch.zeros(*param_size))
-        self.norm_dims = (1, 3)  # norm by C and F
+class CFNorm(nn.Module):
+    def __init__(self, dims, eps=1e-5, affine=True):
+        super(CFNorm, self).__init__()
+        self.eps = eps
+        self.affine = affine
+        self.norm_dims = (1, 3)  # normalize along C and F
+        
+        if self.affine:
+            param_size = [1, dims[0], 1, dims[1]]
+            self.weight = nn.Parameter(torch.ones(*param_size))
+            self.bias = nn.Parameter(torch.zeros(*param_size))
+        else:
+            self.register_parameter('weight', None)
+            self.register_parameter('bias', None)
 
     def forward(self, x):
-        # x: [B, C, T, F]
         mu = x.mean(dim=self.norm_dims, keepdim=True)
-        std = torch.sqrt(x.var(dim=self.norm_dims, keepdim=True, unbiased=False) + 1e-5)
-        x_hat = (x - mu) / std
-        return x_hat * self.gamma + self.beta
+        std = x.std(dim=self.norm_dims, keepdim=True, unbiased=False)
+        x_hat = (x - mu) / (std + self.eps)
+        if self.affine:
+            return x_hat * self.weight + self.bias
+        return x_hat
 
 
 # basic block in https://arxiv.org/pdf/2209.03952
@@ -114,7 +120,7 @@ class ConvBlock(nn.Module):
             bias=True
         )
         self.prelu = nn.PReLU()
-        self.norm = LNBlock((out_channels, 64))
+        self.norm = CFNorm((out_channels, 64))
 
     def forward(self, x):
         # x: [B, in_channels, T, F]
@@ -232,78 +238,6 @@ class DPRNNBlock(nn.Module):
 
     def forward(self, x: torch.Tensor):
         return self.net(x)
-
-
-# for audio
-class GroupConv2d(nn.Module):
-    def __init__(
-        self,
-        in_channels: int = 64,
-        out_channels: int = 64,
-        groups: int = 64,
-        kernel_size: int = 4,
-        stride: int = 1,
-        sigmoid: bool = False
-    ):
-        super(GroupConv2d, self).__init__()
-        assert in_channels == out_channels
-
-        self.cnn = nn.Conv2d(
-            in_channels=in_channels,
-            out_channels=out_channels,
-            kernel_size=kernel_size,
-            groups=groups,
-            stride=stride,
-            bias=False,)
-        
-        self.norm = nn.InstanceNorm2d(num_features=in_channels)
-        
-        if sigmoid:
-            self.activation = nn.Sigmoid()
-        else:
-            self.activation = nn.ReLU()
-
-    def forward(self, x):
-        x = self.cnn(x)
-        x = self.norm(x)
-        x = self.activation(x)
-        return x
-    
-
-# for video
-class GroupConv1d(nn.Module):
-    def __init__(
-        self,
-        in_channels: int = 64,
-        out_channels: int = 64,
-        groups: int = 64,
-        kernel_size: int = 4,
-        stride: int = 1,
-        sigmoid: bool = False
-    ):
-        super(GroupConv1d, self).__init__()
-        assert in_channels == out_channels
-
-        self.cnn = nn.Conv1d(
-            in_channels=in_channels,
-            out_channels=out_channels,
-            kernel_size=kernel_size,
-            groups=groups,
-            stride=stride,
-            bias=False,)
-        
-        self.norm = nn.InstanceNorm2d(num_features=in_channels)
-        
-        if sigmoid:
-            self.activation = nn.Sigmoid()
-        else:
-            self.activation = nn.ReLU()
-
-    def forward(self, x):
-        x = self.cnn(x)
-        x = self.norm(x)
-        x = self.activation(x)
-        return x
 
 
 # see reconstruction phase from https://arxiv.org/pdf/2309.17189
@@ -860,15 +794,15 @@ class RTFSNetwork(nn.Module):
             in_channels=audio_out_channels
         )
 
-    def forward(self, mix: torch.Tensor, s1_embedding: torch.Tensor, s2_embedding: torch.Tensor):
-        mix = self.audio_encoder(mix)
+    def forward(self, complex_spectrogram: torch.Tensor, s1_embedding: torch.Tensor, s2_embedding: torch.Tensor):
+        encoded_spec = self.audio_encoder(complex_spectrogram)
         # speaker 1
-        a_R_1 = self.separation_network(mix, s1_embedding)
+        a_R_1 = self.separation_network(encoded_spec, s1_embedding)
         audio_complex_1 = self.spectral_ss(a_R_1)
         s1_pred = self.audio_decoder(audio_complex_1)
 
         # speaker 2
-        a_R_2 = self.separation_network(mix, s2_embedding)
+        a_R_2 = self.separation_network(encoded_spec, s2_embedding)
         audio_complex_2 = self.spectral_ss(a_R_2)
         s2_pred = self.audio_decoder(audio_complex_2)
 
