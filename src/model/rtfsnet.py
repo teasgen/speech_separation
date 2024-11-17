@@ -798,7 +798,7 @@ class RTFSNetwork(nn.Module):
         reduced_channels: int = 64,
         audio_kernel_size: int = 4,
         video_kernel_size: int = 3,
-        num_upsamples: int = 4,
+        num_upsamples: int = 4, # TODO: maybe reduce for video?
         num_attn_heads: int = 4,
     ):
         super(RTFSNetwork, self).__init__()
@@ -820,7 +820,7 @@ class RTFSNetwork(nn.Module):
             in_channels=audio_out_channels
         )
 
-    def forward(self, complex_spectrogram: torch.Tensor, s1_embedding: torch.Tensor, s2_embedding: torch.Tensor):
+    def forward(self, complex_spectrogram: torch.Tensor, s1_embedding: torch.Tensor, s2_embedding: torch.Tensor, **batch):
         encoded_spec = self.audio_encoder(complex_spectrogram)
         # [1, 256, 251, 129]
         # speaker 1
@@ -834,3 +834,16 @@ class RTFSNetwork(nn.Module):
         s2_pred = self.audio_decoder(audio_complex_2)
 
         return {"s1_pred": s1_pred, "s2_pred": s2_pred}
+    
+    def __str__(self):
+        """
+        Model prints with the number of parameters.
+        """
+        all_parameters = sum([p.numel() for p in self.parameters()])
+        trainable_parameters = sum([p.numel() for p in self.parameters() if p.requires_grad])
+
+        result_info = super().__str__()
+        result_info = result_info + f"\nAll parameters: {all_parameters}"
+        result_info = result_info + f"\nTrainable parameters: {trainable_parameters}"
+
+        return result_info

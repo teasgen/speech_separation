@@ -7,9 +7,16 @@ defaults:
   - dataloader: example
   - transforms: ss_full_spec
   - _self_
+
+encoder:
+  _target_: src.encoders.STFT
+  n_fft: 256
+  hop_length: 128
+
 optimizer:
   _target_: torch.optim.Adam
   lr: 3e-4
+
 lr_scheduler:
   _target_: torch.optim.lr_scheduler.OneCycleLR
   max_lr: 0.0003
@@ -17,8 +24,10 @@ lr_scheduler:
   steps_per_epoch: ${trainer.epoch_len}
   epochs: ${trainer.n_epochs}
   anneal_strategy: cos
+
 loss_function:
   _target_: src.loss.MAEWavLoss
+
 trainer:
   log_step: 50
   n_epochs: 200

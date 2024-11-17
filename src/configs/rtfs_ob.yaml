@@ -7,6 +7,12 @@ defaults:
   - dataloader: example
   - transforms: ss_full_spec
   - _self_
+
+encoder:
+  _target_: src.encoders.STFT
+  n_fft: 256
+  hop_length: 128
+
 optimizer:
   _target_: torch.optim.Adam
   lr: 3e-4
