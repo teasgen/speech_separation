@@ -62,19 +62,24 @@ class DPRNNUnit(nn.Module):
 
         res = x
         B, C, T, F = x.shape
+        # nominal notation, in fact at first forward its [B, C, F, T]
+        # cause we transpose to process frequency
 
         x = self.norm(x)
         x = x.permute(0, 3, 1, 2).contiguous().view(B * F, C, T)
+        # [B*F, C, T, 1]
         x = x.unfold(dimension=2, size=self.kernel_size, step=1)  # [B*F, C, L, kernel_size]
-
+        # TODO: check that sizes match the paper
         x = x.permute(2, 0, 1, 3)  # [L, B*F, C, kernel_size]
         x = x.reshape(-1, B * F, C * self.kernel_size)  # [L, B*F, C * kernel_size]
         x, _ = self.lstm(x)
-        x = x.permute(1, 2, 0)  # [B*F, hidden_size*2, L]
+        x = x.permute(1, 2, 0)  # [B*F, hidden_size*2, L] = [B*F, 64, 55] or [B*F, 64, 116]
 
         x = self.conv_transpose(x)
         x = x.view(B, F, C, T)
+        # TODO: maybe not view after conv transpose?
         x = x.permute(0, 2, 3, 1).contiguous()
+        # [B, C, T, F]
 
         x = x + res
         if self.transpose:
@@ -83,17 +88,18 @@ class DPRNNUnit(nn.Module):
         return x
 
 
+# cfLN in https://arxiv.org/pdf/2209.03952
 class CFNorm(nn.Module):
-    def __init__(self, dims, eps=1e-5, affine=True):
+    def __init__(self, dims=(4, 64), eps=1e-5, affine=True):
         super(CFNorm, self).__init__()
         self.eps = eps
         self.affine = affine
         self.norm_dims = (1, 3)  # normalize along C and F
         
         if self.affine:
-            param_size = [1, dims[0], 1, dims[1]]
-            self.weight = nn.Parameter(torch.ones(*param_size))
-            self.bias = nn.Parameter(torch.zeros(*param_size))
+            dims = [1, dims[0], 1, dims[1]]
+            self.weight = nn.Parameter(torch.ones(*dims))
+            self.bias = nn.Parameter(torch.zeros(*dims))
         else:
             self.register_parameter('weight', None)
             self.register_parameter('bias', None)
@@ -107,31 +113,12 @@ class CFNorm(nn.Module):
         return x_hat
 
 
-# basic block in https://arxiv.org/pdf/2209.03952
-class ConvBlock(nn.Module):
-    def __init__(self, in_channels, out_channels):
-        super(ConvBlock, self).__init__()
-        self.conv = nn.Conv2d(
-            in_channels=in_channels,
-            out_channels=out_channels,
-            kernel_size=1,
-            stride=1,
-            padding=0,
-            bias=True
-        )
-        self.prelu = nn.PReLU()
-        self.norm = CFNorm((out_channels, 64))
-
-    def forward(self, x):
-        # x: [B, in_channels, T, F]
-        x = self.conv(x) # [B, out_channels, T, F]
-        x = self.prelu(x)
-        x = self.norm(x)
-        return x
-
-
 # link: https://arxiv.org/pdf/2209.03952
 class TFDecepticon(nn.Module):
+    """Regular attention block, but based on convolutions,
+    as described in https://arxiv.org/pdf/2209.03952 figure 2.
+    """
+    
     def __init__(
             self,
             in_channels: int = 64,
@@ -151,28 +138,50 @@ class TFDecepticon(nn.Module):
         assert self.in_channels % self.num_heads == 0
         assert self.in_channels == self.out_channels
 
-        self.q = nn.ModuleList([ConvBlock(self.in_channels, self.hidden_size) for _ in range(self.num_heads)])
-        self.k = nn.ModuleList([ConvBlock(self.in_channels, self.hidden_size) for _ in range(self.num_heads)])
-        self.v = nn.ModuleList([ConvBlock(self.in_channels, self.in_channels // self.num_heads) for _ in range(self.num_heads)])
+        self.q = nn.ModuleList([
+            nn.Sequential(
+                nn.Conv2d(in_channels=in_channels, out_channels=hidden_size, kernel_size=1),
+                nn.PReLU(),
+                CFNorm()
+            )
+        for _ in range(num_heads)])
+        self.k = nn.ModuleList([
+            nn.Sequential(
+                nn.Conv2d(in_channels=in_channels, out_channels=hidden_size, kernel_size=1),
+                nn.PReLU(),
+                CFNorm((hidden_size, num_freqs))
+            )
+        for _ in range(num_heads)])
+        self.v = nn.ModuleList([
+            nn.Sequential(
+                nn.Conv2d(in_channels=in_channels, out_channels=in_channels // num_heads, kernel_size=1),
+                nn.PReLU(),
+                CFNorm((in_channels // num_heads, num_freqs))
+            )
+        for _ in range(num_heads)])
         self.softmax = nn.Softmax(dim=-1)
-        self.linear = ConvBlock(self.in_channels, self.in_channels)
+        self.linear = nn.Sequential(
+            nn.Conv2d(in_channels=in_channels, out_channels=in_channels, kernel_size=1),
+            nn.PReLU(),
+            CFNorm((in_channels, num_freqs))
+        )
 
     def forward(self, x):
-        # x: [B, C, T, F], C = 4
+        # x: [B, C, T, F], C = 64, same as D in the paper
         res = x
         queries = [q(x) for q in self.q] # [B, 4, T, F]
         keys = [k(x) for k in self.k]
-        values = [v(x) for v in self.v] #[B, 1, T, F]
+        values = [v(x) for v in self.v] #[B, 16, T, F]
 
         Q_l = torch.cat(queries, dim=0)  # [4*B, 4, T, F]
         K_l = torch.cat(keys, dim=0)
-        V_l = torch.cat(values, dim=0)  # [4*B, 1, T, F]
+        V_l = torch.cat(values, dim=0)  # [4*B, 16, T, F]
 
         Q_l = Q_l.transpose(1, 2).flatten(start_dim=2)  # [4*B, T, 4*F]
         K_l = K_l.transpose(1, 2).flatten(start_dim=2)
 
         V_l = V_l.transpose(1, 2) # [4*B, T, 1, F]
-        old_shape = V_l.shape
+        target_shape = V_l.shape
         V_l = V_l.flatten(start_dim=2) # [4*B, T, F]                 
 
         attention_matrix = self.softmax(
@@ -182,18 +191,18 @@ class TFDecepticon(nn.Module):
 
         # attn
         A_l = torch.matmul(attention_matrix, V_l) # [4*B, T, F]
-        A_l = A_l.view(old_shape) # [4*B, T, 1, F]
-        A_l = A_l.transpose(1, 2) # [4*B, 1, T, F]
+        A_l = A_l.view(target_shape) # [4*B, T, 16, F]
+        A_l = A_l.transpose(1, 2) # [4*B, 16, T, F]
 
         B, C, T, F = x.shape
         x = A_l.view(self.num_heads, B, self.in_channels // self.num_heads, T, F)  # [4, B, 1, T, F]
-        x = x.transpose(0, 1).contiguous() # [B, 4, 1, T, F]
+        x = x.transpose(0, 1).contiguous() # [B, 4, 16, T, F]
         x = x.view(B, self.in_channels, T, F) # [B, 4, T, F]
         x = self.linear(x) # [B, 4, T, F]
         x = x + res # [B, 4, T, F]
 
         return x
-    
+
 
 class DPRNNBlock(nn.Module):
     def __init__(
@@ -249,27 +258,42 @@ class TFARUnit(nn.Module):
         kernel_size: int = 4
     ):
         super(TFARUnit, self).__init__()
-        self.w1 = nn.Sequential(
-            nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, groups=in_channels),
+        self.w3 = nn.Sequential(
+            nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, groups=in_channels, bias=False),
             nn.InstanceNorm2d(num_features=out_channels)
         )
         self.w2 = nn.Sequential(
-            nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, groups=in_channels),
+            nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, groups=in_channels, bias=False),
             nn.InstanceNorm2d(num_features=out_channels),
         )
-        self.w3 = nn.Sequential(
-            nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, groups=in_channels),
+        self.w1 = nn.Sequential(
+            nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, groups=in_channels, bias=False),
             nn.InstanceNorm2d(num_features=out_channels),
             nn.Sigmoid(),
         )
     
 
-    def forward(self, n: torch.Tensor, m: torch.Tensor):
-        term1 = self.w1(n)
-        target_shape = n.shape[-(len(n.shape) // 2) :]
-        term3 = interpolate(self.w2(m), size=target_shape, mode="nearest")
-        term2 = interpolate(self.w3(m), size=target_shape, mode="nearest")
+    def forward(self, m: torch.Tensor, n: torch.Tensor):
+        """
+        In paper's notation, this block is 
+        I(m, n) = φ (sigmoid (W1 (n))) ⊙ W2 (m) + φ (W3 (n))
+        (copied formula paper :)
 
+        m is A_i, downsampled x
+        n is A_G, attentioned features
+        """
+        B, C, T, F = m.shape
+        term1 = self.w1(n)
+        # TODO: maybe add smarter interpolation?
+        term1 = interpolate(self.w2(m), size=(T, F), mode="nearest")
+        
+        # TODO: maybe here too
+        term3 = self.w3(n)
+        term3 = interpolate(term3, size=(T, F), mode="nearest")
+
+        
+        term2 = self.w2(m)
+        term2 = interpolate(term2, size=(T, F), mode="nearest")
         upsampled = term1 * term2 + term3
         return upsampled
 
@@ -310,11 +334,11 @@ class RTFSBlock(nn.Module):
             nn.PReLU(),)
 
         self.downsample_1 = nn.Sequential(
-            nn.Conv2d(in_channels=hidden_size, out_channels=hidden_size, kernel_size=kernel_size, groups=hidden_size, stride=1),
+            nn.Conv2d(in_channels=hidden_size, out_channels=hidden_size, kernel_size=kernel_size, groups=hidden_size, stride=1, padding=(0, 1)),
             nn.InstanceNorm2d(num_features=hidden_size)
         )
         self.downsample_2 = nn.Sequential(
-            nn.Conv2d(in_channels=hidden_size, out_channels=hidden_size, kernel_size=kernel_size, groups=hidden_size, stride=2),
+            nn.Conv2d(in_channels=hidden_size, out_channels=hidden_size, kernel_size=kernel_size, groups=hidden_size, stride=2, padding=(0, 1)),
             nn.InstanceNorm2d(num_features=hidden_size)
         )
         # not sure about output_size
@@ -326,6 +350,7 @@ class RTFSBlock(nn.Module):
         self.final_conv = nn.Conv2d(in_channels=hidden_size, out_channels=in_channels, kernel_size=1)
 
     def forward(self, x: torch.Tensor):
+        B, C, T, F = x.shape
         res = self.skip_connection(x)
 
         x_cnn = self.cnn(x)
@@ -344,7 +369,9 @@ class RTFSBlock(nn.Module):
         upsampled = self.upsample(reconstructed_1, reconstructed_2) + x_compressed_1
         # formulae (17) - (19)
 
-        return self.final_conv(upsampled) + res        
+        upsampled = interpolate(self.final_conv(upsampled), size=(T, F), mode="nearest")
+        # to match sizes
+        return upsampled + res        
 
 
 class TFARUnitVideo(nn.Module):
@@ -358,7 +385,7 @@ class TFARUnitVideo(nn.Module):
         kernel_size: int = 3
     ):
         super(TFARUnitVideo, self).__init__()
-        self.w1 = nn.Sequential(
+        self.w3 = nn.Sequential(
             nn.Conv1d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, groups=in_channels, bias=False),
             nn.BatchNorm1d(num_features=out_channels)
         )
@@ -366,45 +393,35 @@ class TFARUnitVideo(nn.Module):
             nn.Conv1d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, groups=in_channels, bias=False),
             nn.BatchNorm1d(num_features=out_channels)
         )
-        self.w3 = nn.Sequential(
+        self.w1 = nn.Sequential(
             nn.Conv1d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, groups=in_channels, bias=False),
             nn.BatchNorm1d(num_features=out_channels),
             nn.Sigmoid()
         )
-    
-    def forward(self, n: torch.Tensor, m: torch.Tensor):
-        term1 = self.w1(n)
-        target_shape = n.shape[-len(n.shape) // 2 :]
-        term3 = interpolate(self.w2(m), size=target_shape, mode="nearest")
-        term2 = interpolate(self.w3(m), size=target_shape, mode="nearest")
 
+    def forward(self, m: torch.Tensor, n: torch.Tensor):
+        """
+        In paper's notation, this block is 
+        I(m, n) = φ (sigmoid (W1 (n))) ⊙ W2 (m) + φ (W3 (n))
+        (copied formula paper :)
+
+        m is A_i, downsampled x
+        n is A_G, attentioned features
+        """
+        B, C, T = m.shape
+        term1 = self.w1(n)
+        # TODO: maybe add smarter interpolation?
+        term1 = interpolate(self.w2(m), size=(T), mode="nearest")
+        
+        # TODO: maybe here too
+        term3 = self.w3(n)
+        term3 = interpolate(term3, size=(T), mode="nearest")
+
+        
+        term2 = self.w2(m)
+        term2 = interpolate(term2, size=(T), mode="nearest")
         upsampled = term1 * term2 + term3
         return upsampled
-
-
-class AttentionConv2d(nn.Module):
-    def __init__(
-        self,
-        in_channels: int,
-        out_channels: int,
-        kernel_size: int = 1,
-        relu: bool = True
-    ):
-        super(AttentionConv2d, self).__init__()
-        self.cnn = nn.Conv2d(
-            in_channels=in_channels,
-            out_channels=out_channels,
-            kernel_size=kernel_size,
-            groups=in_channels,
-            bias=False
-        )
-        self.norm = nn.BatchNorm2d(num_features=out_channels)
-        self.activation = nn.ReLU() if relu else nn.Identity()
-
-    def forward(self, x):
-        x = self.cnn(x)
-        x = self.norm(x)
-        x = self.activation(x)
 
 
 # attention fusion block from https://arxiv.org/pdf/2309.17189
@@ -417,12 +434,12 @@ class CAF(nn.Module):
         self,
         in_channels_attn: int,
         in_channels_gt: int,
-        kernel_size: int = 1
+        num_attn_heads: int = 1
     ):
         super(CAF, self).__init__()
         self.in_channels_attn = in_channels_attn
         self.in_channels_gt = in_channels_gt
-        self.kernel_size = kernel_size
+        self.num_attn_heads = num_attn_heads
 
         self.P1 = nn.Sequential(
             nn.Conv2d(in_channels=in_channels_attn, out_channels=in_channels_attn, kernel_size=1, groups=in_channels_attn, bias=False),
@@ -433,8 +450,8 @@ class CAF(nn.Module):
             nn.BatchNorm2d(num_features=in_channels_attn),
         )
         self.F1 = nn.Sequential(
-            nn.Conv1d(in_channels=in_channels_gt, out_channels=kernel_size * in_channels_attn, kernel_size=1, groups=in_channels_attn),
-            nn.GroupNorm(num_groups=1, num_channels=kernel_size * in_channels_attn)
+            nn.Conv1d(in_channels=in_channels_gt, out_channels=num_attn_heads * in_channels_attn, kernel_size=1, groups=in_channels_attn),
+            nn.GroupNorm(num_groups=1, num_channels=num_attn_heads * in_channels_attn)
         )
         self.F2 = nn.Sequential(
             nn.Conv1d(in_channels=in_channels_gt, out_channels=in_channels_attn, kernel_size=1, groups=in_channels_attn),
@@ -452,9 +469,10 @@ class CAF(nn.Module):
 
         # ATTENTION FUSION:
         v_h = self.F1(v1)
-        v_h = v_h.reshape(B, self.in_channels_attn, self.kernel_size, -1)
+        v_h = v_h.reshape(B, self.in_channels_attn, self.num_attn_heads, -1)
         v_mean = v_h.mean(2, keepdim=False)
         v_mean = v_mean.view(B, self.in_channels_attn, -1)
+        # TODO; maybe make smarter interpolation?
         v_attn = interpolate(self.softmax(v_mean), size=T, mode="nearest")
 
 
@@ -480,7 +498,7 @@ class PositionalEncoder(nn.Module):
         embed_dim=64, 
         dropout=0.1
     ):
-        super().__init__()
+        super(PositionalEncoder, self).__init__()
         self.pos_features = torch.zeros(max_length, embed_dim)
 
         positions = torch.arange(0, max_length, dtype=torch.float).unsqueeze(1)
@@ -519,7 +537,7 @@ class GAModule(nn.Module):
         
         # FFN:
         fc1 = nn.Sequential(
-            nn.Conv1d(in_channels=in_channels, out_channels=in_channels*2, bias=False),
+            nn.Conv1d(in_channels=in_channels, out_channels=in_channels*2, kernel_size=kernel_size, bias=False),
             nn.GroupNorm(num_groups=1, num_channels=in_channels*2)
         )
         extractor = nn.Sequential(
@@ -557,7 +575,7 @@ class GAModule(nn.Module):
         return x
 
 
-# tda block from https://arxiv.org/pdf/2209.15200,
+# tda from https://arxiv.org/pdf/2209.15200,
 # adapted for rfts-net video processing architecture
 class VideoProcessor(nn.Module):
     def __init__(
@@ -572,8 +590,8 @@ class VideoProcessor(nn.Module):
         self.num_upsamples = num_upsamples
         self.num_downsamples = num_downsamples
         self.skip_connection = nn.Sequential(
-            nn.Conv1d(in_channels=in_channels, out_channels=hidden_size, kernel_size=1, groups=in_channels),
-            nn.BatchNorm1d(num_features=hidden_size),
+            nn.Conv1d(in_channels=in_channels, out_channels=in_channels, kernel_size=1, groups=in_channels),
+            nn.BatchNorm1d(num_features=in_channels),
             nn.PReLU(),
         )
         self.cnn = nn.Sequential(
@@ -591,7 +609,7 @@ class VideoProcessor(nn.Module):
         self.video_attn = GAModule(in_channels=hidden_size, kernel_size=kernel_size, num_heads=8, dropout_rate=0.1)
 
         self.reconstructions = nn.ModuleList(
-            [TFARUnitVideo(in_channels=hidden_size, ou_channels=hidden_size, kernel_size=kernel_size) \
+            [TFARUnitVideo(in_channels=hidden_size, out_channels=hidden_size, kernel_size=kernel_size) \
             for _ in range(num_upsamples)]
         )
         self.upsamples = nn.ModuleList(
@@ -601,6 +619,7 @@ class VideoProcessor(nn.Module):
         self.final_conv = nn.Conv1d(in_channels=hidden_size, out_channels=in_channels, kernel_size=1)
 
     def forward(self, x: torch.Tensor):
+        # x: [B, 512, T] = [B, 512, 50]
         res = self.skip_connection(x)
         x_cnn = self.cnn(x)
 
@@ -609,26 +628,29 @@ class VideoProcessor(nn.Module):
         for downsample in self.downsamples:
             current = downsample(current)
             x_compressed.append(current)
+        # compressed time dimension in 2**(num_downsamples-1) times
 
-        target_shape = x_compressed[-1].shape
+        B, C, T = x_compressed[-1].shape # approx 5
         A_g_list = [
-            adaptive_avg_pool1d(compression, output_size=target_shape[-1:])
+            adaptive_avg_pool1d(compression, output_size=(T,))
             for compression in x_compressed
         ]
         A_g = sum(A_g_list)
         A_g = self.video_attn(A_g)
-        
+        # TODO: debug reconstructions
         reconstructions = [
             reconstruction(compression, A_g)
             for reconstruction, compression in zip(self.reconstructions, x_compressed)
         ]
 
-        # TODO: check for sizes
         upsamples = reconstructions[-1]
         for upsample, reconstruction, downsample in zip(
             reversed(self.upsamples), reversed(reconstructions[:-1]), reversed(x_compressed[:-1])
         ):
             upsamples = upsample(reconstruction, upsamples) + downsample
+
+        # TODO: maybe add smarter interpolation?
+        upsamples = interpolate(upsamples, size=(x.shape[-1]), mode="nearest")
 
         return self.final_conv(upsamples) + res
 
@@ -649,6 +671,7 @@ class SeparationNetwork(nn.Module):
         audio_kernel: int = 4,
         video_kernel: int = 3,
         num_upsamples: int = 4, # aka q
+        num_attn_heads: int = 4
     ):
         super(SeparationNetwork, self).__init__()
         self.R = R
@@ -668,7 +691,7 @@ class SeparationNetwork(nn.Module):
         self.fusion_block = CAF(
             in_channels_attn=audio_channels,
             in_channels_gt=video_channels,
-            kernel_size=1
+            num_attn_heads=num_attn_heads,
         )
 
     def forward(self, audio: torch.Tensor, video: torch.Tensor):
@@ -677,16 +700,16 @@ class SeparationNetwork(nn.Module):
             audio = self.audio_rtfs((audio + res_audio) if i > 0 else (audio))
 
         video = self.video_processor(video)
-        audio, video = self.fusion_block(audio, video)
+        audio = self.fusion_block(audio, video)
 
         # TODO: check this, maybe too many operations
         for i in range(self.R - 1):
             x = audio + res_audio
             res = x
             for j in range(self.R):
-                audio = self.audio_rtfs((x + res) if j > 0 else x)
+                x = self.audio_rtfs((x + res) if j > 0 else x)
 
-        return audio
+        return x
 
 
 class SpectralSS(nn.Module):
@@ -739,7 +762,7 @@ class AudioDecoder(nn.Module):
         super(AudioDecoder, self).__init__()
         self.n_fft = n_fft
         self.hop_length = hop_length
-        self.decoder = nn.ConvTranspose2d(in_channels=in_channels, out_channels=2, kernel_size=kernel_size, bias=False)
+        self.decoder = nn.ConvTranspose2d(in_channels=in_channels, out_channels=2, kernel_size=kernel_size, padding=1, bias=False)
         self.register_buffer(
             name="hann_window",
             tensor=torch.hann_window(n_fft)
@@ -758,8 +781,8 @@ class AudioDecoder(nn.Module):
             n_fft=self.n_fft,
             hop_length=self.hop_length,
             window=self.hann_window,
-            length=T
-        ) # [B, T]
+            length=32000,
+        ) # [B, T_original]
 
         return audio
 
@@ -776,7 +799,9 @@ class RTFSNetwork(nn.Module):
         audio_kernel_size: int = 4,
         video_kernel_size: int = 3,
         num_upsamples: int = 4,
+        num_attn_heads: int = 4,
     ):
+        super(RTFSNetwork, self).__init__()
         self.audio_encoder = AudioEncoder(in_channels=2, out_channels=audio_out_channels)
         self.separation_network = SeparationNetwork(
             R=R,
@@ -786,6 +811,7 @@ class RTFSNetwork(nn.Module):
             audio_kernel=audio_kernel_size,
             video_kernel=video_kernel_size,
             num_upsamples=num_upsamples,
+            num_attn_heads=num_attn_heads,
         )
         self.spectral_ss = SpectralSS(in_channels=audio_out_channels)
         self.audio_decoder = AudioDecoder(
@@ -796,14 +822,15 @@ class RTFSNetwork(nn.Module):
 
     def forward(self, complex_spectrogram: torch.Tensor, s1_embedding: torch.Tensor, s2_embedding: torch.Tensor):
         encoded_spec = self.audio_encoder(complex_spectrogram)
+        # [1, 256, 251, 129]
         # speaker 1
         a_R_1 = self.separation_network(encoded_spec, s1_embedding)
-        audio_complex_1 = self.spectral_ss(a_R_1)
+        audio_complex_1 = self.spectral_ss(a_R_1, encoded_spec)
         s1_pred = self.audio_decoder(audio_complex_1)
 
         # speaker 2
         a_R_2 = self.separation_network(encoded_spec, s2_embedding)
-        audio_complex_2 = self.spectral_ss(a_R_2)
+        audio_complex_2 = self.spectral_ss(a_R_2, encoded_spec)
         s2_pred = self.audio_decoder(audio_complex_2)
 
         return {"s1_pred": s1_pred, "s2_pred": s2_pred}

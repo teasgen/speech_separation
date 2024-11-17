@@ -26,8 +26,6 @@ class BaseDataset(Dataset):
         limit=None,
         target_sr=16000,
         encoder: BaseEncoder=None,
-        n_fft=256,
-        hop_length=128,
         shuffle_index=False,
         instance_transforms=None,
     ):
@@ -47,11 +45,9 @@ class BaseDataset(Dataset):
         """
         self._assert_index_is_valid(index)
         self.target_sr = target_sr
-        self.n_fft = n_fft
-        self.hop_length = hop_length
 
         if encoder is not None:
-            self.encoder = encoder(n_fft=self.n_fft, hop_length=self.hop_length)
+            self.encoder = encoder
 
         index = self._shuffle_and_limit_index(index, limit, shuffle_index)
         self._index: List[dict] = index

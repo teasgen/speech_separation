@@ -2,7 +2,7 @@
 defaults:
   - model: rtfs
   - writer: wandb
-  - metrics: ss_cuda
+  - metrics: ss_cpu
   - datasets: rtfs_ob
   - dataloader: example
   - transforms: ss_full_spec
@@ -21,8 +21,8 @@ loss_function:
   _target_: src.loss.MAEWavLoss
 trainer:
   log_step: 50
-  n_epochs: 200
-  epoch_len: 300
+  n_epochs: 2
+  epoch_len: 10
   device_tensors: ["mix_spectrogram", "complex_spectrogram", "s1_spectrogram", "s2_spectrogram", "mix", "s1", "s2", "s1_embedding", "s2_embedding"] # which tensors should be on device (ex. GPU)
   resume_from: null # null or path to the checkpoint dir with *.pth and config.yaml
   device: auto # device name or "auto"

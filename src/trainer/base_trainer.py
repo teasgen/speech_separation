@@ -143,11 +143,11 @@ class BaseTrainer:
         if config.trainer.get("from_pretrained") is not None:
             self._from_pretrained(config.trainer.get("from_pretrained"))
 
-        if config.trainer.get("stft") is not None:
-            self.n_fft = config.trainer.get("n_fft")
-            self.hop_length = config.trainer.get("hop_length")
-            self.window = torch.hann_window(config.trainer.get("n_fft")).to(device)
-            print(f"{'*'*35}\nWINDOW PUT ON DEVICE: {self.window.device}\n{'*'*35}")
+        # if config.trainer.get("stft") is not None:
+        #     self.n_fft = config.trainer.get("n_fft")
+        #     self.hop_length = config.trainer.get("hop_length")
+        #     self.window = torch.hann_window(config.trainer.get("n_fft")).to(device)
+        #     print(f"{'*'*35}\nWINDOW PUT ON DEVICE: {self.window.device}\n{'*'*35}")
 
     def train(self):
         """
