@@ -496,13 +496,17 @@ class PositionalEncoder(nn.Module):
         self, 
         max_length=10000, 
         embed_dim=64, 
-        dropout=0.1
+        dropout=0.1,
+        device='cuda:0' #default deivce
     ):
         super(PositionalEncoder, self).__init__()
-        self.pos_features = torch.zeros(max_length, embed_dim)
+        self.pos_features = torch.zeros(max_length, embed_dim, device=device)
 
-        positions = torch.arange(0, max_length, dtype=torch.float).unsqueeze(1)
-        freqs = torch.exp(torch.arange(0, embed_dim, 2, dtype=torch.float) * (-torch.log(torch.tensor(10000).float()) / embed_dim))
+        positions = torch.arange(0, max_length, dtype=torch.float, device=device).unsqueeze(1)
+        freqs = torch.exp(
+            torch.arange(0, embed_dim, 2, dtype=torch.float, device=device) *
+            (-torch.log(torch.tensor(10000.0, device=device)) / embed_dim)
+        )
         arguments = positions * freqs
         self.pos_features[:, 0::2] = torch.sin(arguments)
         self.pos_features[:, 1::2] = torch.cos(arguments)
