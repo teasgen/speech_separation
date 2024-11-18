@@ -1,7 +1,7 @@
 train:
   _target_: src.datasets.SSDataset
   encoder: ${encoder}
-  part: "val"
+  part: "train"
   audio_dir: /home/teasgen/dla/speech_separation/dla_dataset/audio
   video_dir: /home/teasgen/dla/speech_separation/dla_dataset/mouths
   embedding_dir: /home/teasgen/dla/speech_separation/dla_dataset/embeddings

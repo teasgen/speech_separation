@@ -3,8 +3,8 @@ defaults:
   - model: rtfs
   - writer: wandb
   - metrics: ss_cuda
-  - datasets: rtfs_ob
-  - dataloader: example
+  - datasets: rtfs
+  - dataloader: default
   - transforms: ss_full_spec
   - _self_
 
