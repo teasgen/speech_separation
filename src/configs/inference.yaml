@@ -3,7 +3,7 @@ defaults:
   - metrics: ss
   - datasets: ss_dataset
   - dataloader: example
-  - transforms: ss_full_spec
+  - transforms: inference
   - _self_
 inferencer:
   device_tensors: ["mix_spectrogram", "s1_spectrogram", "s2_spectrogram", "mix", "s1", "s2", "s2_video", "s1_embedding", "s1_embedding", "s2_embedding"] # which tensors should be on device (ex. GPU)
