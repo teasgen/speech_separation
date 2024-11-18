@@ -323,7 +323,7 @@ class TFARUnit(nn.Module):
         B, C, T, F = m.shape
         term1 = self.w1(n)
         # TODO: maybe add smarter interpolation?
-        term1 = interpolate(self.w2(m), size=(T, F), mode="nearest")
+        term1 = interpolate(term1, size=(T, F), mode="nearest")
         
         # TODO: maybe here too
         term3 = self.w3(n)
@@ -401,7 +401,7 @@ class RTFSBlock(nn.Module):
         Ag = Ag_1 + Ag_2
         Ag = self.dual_path(Ag)
         # formulae (13) - (16)
-        
+
         reconstructed_1 = self.reconstruction_1(x_compressed_1, Ag)
         reconstructed_2 = self.reconstruction_2(x_compressed_2, Ag)
         upsampled = self.upsample(reconstructed_1, reconstructed_2) + x_compressed_1
@@ -450,7 +450,7 @@ class TFARUnitVideo(nn.Module):
         B, C, T = m.shape
         term1 = self.w1(n)
         # TODO: maybe add smarter interpolation?
-        term1 = interpolate(self.w2(m), size=(T), mode="nearest")
+        term1 = interpolate(term1, size=(T), mode="nearest")
         
         # TODO: maybe here too
         term3 = self.w3(n)
@@ -570,7 +570,7 @@ class GAModule(nn.Module):
     ):
         super(GAModule, self).__init__()
 
-        # MHSA:
+        # attention
         self.norm1 = nn.LayerNorm(in_channels)
         self.norm2 = nn.LayerNorm(in_channels)
         self.positional_encoder = PositionalEncoder(embed_dim=in_channels, dropout=dropout_rate)
@@ -578,9 +578,9 @@ class GAModule(nn.Module):
         self.dropout1 = nn.Dropout(dropout_rate)
         self.dropout2 = nn.Dropout(dropout_rate)
         
-        # FFN:
+        # feed-forward
         fc1 = nn.Sequential(
-            nn.Conv1d(in_channels=in_channels, out_channels=in_channels*2, kernel_size=kernel_size, bias=False),
+            nn.Conv1d(in_channels=in_channels, out_channels=in_channels*2, kernel_size=1, bias=False),
             nn.GroupNorm(num_groups=1, num_channels=in_channels*2)
         )
         extractor = nn.Sequential(
@@ -612,8 +612,11 @@ class GAModule(nn.Module):
         x = x.transpose(2, 1)
         x = x + res
 
+        # TODO: add padding or interpolation
         res_ffn = x
         x = self.ffn(x)
+        x = interpolate(x, size=res_ffn.shape[-1], mode='linear', align_corners=False)
+        # to match sizes
         x = self.dropout2(x) + res_ffn
         return x
 

@@ -43,7 +43,7 @@ embed1 = load_object(embedding1_path)
 embed2 = load_object(embedding2_path)
 
 encoder = STFT()
-model = RTFSNetwork()
+model = RTFSNetwork(num_upsamples=3)
 
 with torch.no_grad():
     complex_spectrogram = encoder.stft(mix_audio)

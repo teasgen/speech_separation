@@ -7,5 +7,5 @@ video_embed_size: 512
 reduced_channels: 64
 audio_kernel_size: 4
 video_kernel_size: 3
-num_upsamples: 4
+num_upsamples: 3
 num_attn_heads: 4
