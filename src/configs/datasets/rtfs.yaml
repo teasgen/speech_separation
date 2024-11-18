@@ -2,16 +2,16 @@ train:
   _target_: src.datasets.SSDataset
   encoder: ${encoder}
   part: "train"
-  audio_dir: /home/teasgen/dla/speech_separation/dla_dataset/audio
-  video_dir: /home/teasgen/dla/speech_separation/dla_dataset/mouths
-  embedding_dir: /home/teasgen/dla/speech_separation/dla_dataset/embeddings
+  audio_dir: /home/admin/speech_separation/dla_dataset/audio
+  video_dir: /home/admin/speech_separation/dla_dataset/mouths
+  embedding_dir: /home/admin/speech_separation/dla_dataset/embeddings
   instance_transforms: ${transforms.instance_transforms.train}
 
 val:
   _target_: src.datasets.SSDataset
   encoder: ${encoder}
   part: "val"
-  audio_dir: /home/teasgen/dla/speech_separation/dla_dataset/audio
-  video_dir: /home/teasgen/dla/speech_separation/dla_dataset/mouths
-  embedding_dir: /home/teasgen/dla/speech_separation/dla_dataset/embeddings
+  audio_dir: /home/admin/speech_separation/dla_dataset/audio
+  video_dir: /home/admin/speech_separation/dla_dataset/mouths
+  embedding_dir: /home/admin/speech_separation/dla_dataset/embeddings
   instance_transforms: ${transforms.instance_transforms.inference}
