@@ -1,5 +1,5 @@
 _target_: src.model.RTFSNetwork
-R: 3
+R: 4
 n_fft: 256
 hop_length: 128
 audio_out_channels: 256

@@ -6,24 +6,25 @@ from torch.nn.functional import adaptive_avg_pool2d, adaptive_avg_pool1d, interp
 
 class AudioEncoder(nn.Module):
     def __init__(
-            self,
-            in_channels: int=2,
-            out_channels: int = 256
+        self,
+        in_channels: int=2,
+        out_channels: int = 256,
     ):
         super(AudioEncoder, self).__init__()
-        
+
         self.net = nn.Sequential(
-            nn.InstanceNorm2d(num_features=in_channels, affine=True),
+            nn.GroupNorm(num_groups=1, num_channels=in_channels),
             nn.ReLU(),
             nn.Conv2d(in_channels=2, out_channels=out_channels, kernel_size=1, bias=False),
-            nn.InstanceNorm2d(num_features=out_channels, affine=True),
+            nn.GroupNorm(num_groups=1, num_channels=out_channels),
             nn.ReLU(),
-            nn.InstanceNorm2d(num_features=out_channels, affine=True),
-            nn.ReLU(),
+            # nn.GroupNorm(num_groups=1, num_channels=out_channels),
+            # nn.ReLU(),
             nn.Conv2d(in_channels=out_channels, out_channels=out_channels, kernel_size=1, bias=False),
         )
 
-    def forward(self, complex_spectrogram: torch.Tensor):        
+    def forward(self, complex_spectrogram: torch.Tensor):
+        # [B, C_in, T, F]   
         encoded = self.net(complex_spectrogram) # [B, C_out, T, F]
 
         return encoded
@@ -40,7 +41,8 @@ class DPRNNUnit(nn.Module):
         transpose: bool = True
     ):
         super(DPRNNUnit, self).__init__()
-        self.norm = nn.InstanceNorm2d(num_features=in_channels, affine=True)
+        self.norm = ChanNorm(dims=(in_channels, 1))
+        self.unfold = nn.Unfold(kernel_size=(8, 1), stride=(1, 2))
         self.kernel_size = kernel_size
         self.lstm = nn.LSTM(
             input_size=in_channels * kernel_size,
@@ -66,18 +68,18 @@ class DPRNNUnit(nn.Module):
         # cause we transpose to process frequency
 
         x = self.norm(x)
-        x = x.permute(0, 3, 1, 2).contiguous().view(B * F, C, T)
+        x = x.permute(0, 3, 1, 2).contiguous().view(B * F, C, T, 1)
         # [B*F, C, T, 1]
-        x = x.unfold(dimension=2, size=self.kernel_size, step=1)  # [B*F, C, L, kernel_size]
-        # TODO: check that sizes match the paper
-        x = x.permute(2, 0, 1, 3)  # [L, B*F, C, kernel_size]
-        x = x.reshape(-1, B * F, C * self.kernel_size)  # [L, B*F, C * kernel_size]
+        x = self.unfold(x)
+        # [B*F, C*8, L]
+        # x = x.unfold(dimension=2, size=self.kernel_size, step=1)  # [B*F, C, L, kernel_size]
+        x = x.permute(2, 0, 1)  # [L, B*F, C, kernel_size]
+        # x = x.reshape(-1, B * F, C * self.kernel_size)  # [L, B*F, C * kernel_size]
         x, _ = self.lstm(x)
         x = x.permute(1, 2, 0)  # [B*F, hidden_size*2, L] = [B*F, 64, 55] or [B*F, 64, 116]
 
         x = self.conv_transpose(x)
         x = x.view(B, F, C, T)
-        # TODO: maybe not view after conv transpose?
         x = x.permute(0, 2, 3, 1).contiguous()
         # [B, C, T, F]
 
@@ -86,12 +88,48 @@ class DPRNNUnit(nn.Module):
             x = x.transpose(-1, -2).contiguous()
 
         return x
+    
+
+# normalize by channels
+class ChanNorm(nn.Module):
+    def __init__(
+        self,
+        dims=(64, 1),
+        eps=1e-5,
+        affine=True,
+    ):
+        super(ChanNorm, self).__init__()
+        self.eps = eps
+        self.affine = affine
+        self.norm_dims = (1,) #nly channels
+
+        if self.affine:
+            dims = [1, dims[0], 1, dims[1]]
+            self.weight = nn.Parameter(torch.ones(*dims))
+            self.bias = nn.Parameter(torch.zeros(*dims))
+        else:
+            self.register_parameter('weight', None)
+            self.register_parameter('bias', None)
+
+    def forward(self, x):
+        mu = x.mean(dim=self.norm_dims, keepdim=True)
+        std = x.std(dim=self.norm_dims, keepdim=True, unbiased=False)
+        x_hat = (x - mu) / (std + self.eps)
+        if self.affine:
+            return x_hat * self.weight + self.bias
+        return x_hat
+            
 
 
 # cfLN in https://arxiv.org/pdf/2209.03952
-class CFNorm(nn.Module):
-    def __init__(self, dims=(4, 64), eps=1e-5, affine=True):
-        super(CFNorm, self).__init__()
+class ChanFreqNorm(nn.Module):
+    def __init__(
+        self,
+        dims=(4, 64),
+        eps=1e-5,
+        affine=True,
+    ):
+        super(ChanFreqNorm, self).__init__()
         self.eps = eps
         self.affine = affine
         self.norm_dims = (1, 3)  # normalize along C and F
@@ -142,28 +180,28 @@ class TFDecepticon(nn.Module):
             nn.Sequential(
                 nn.Conv2d(in_channels=in_channels, out_channels=hidden_size, kernel_size=1),
                 nn.PReLU(),
-                CFNorm()
+                ChanFreqNorm()
             )
         for _ in range(num_heads)])
         self.k = nn.ModuleList([
             nn.Sequential(
                 nn.Conv2d(in_channels=in_channels, out_channels=hidden_size, kernel_size=1),
                 nn.PReLU(),
-                CFNorm((hidden_size, num_freqs))
+                ChanFreqNorm((hidden_size, num_freqs))
             )
         for _ in range(num_heads)])
         self.v = nn.ModuleList([
             nn.Sequential(
                 nn.Conv2d(in_channels=in_channels, out_channels=in_channels // num_heads, kernel_size=1),
                 nn.PReLU(),
-                CFNorm((in_channels // num_heads, num_freqs))
+                ChanFreqNorm((in_channels // num_heads, num_freqs))
             )
         for _ in range(num_heads)])
         self.softmax = nn.Softmax(dim=-1)
         self.linear = nn.Sequential(
             nn.Conv2d(in_channels=in_channels, out_channels=in_channels, kernel_size=1),
             nn.PReLU(),
-            CFNorm((in_channels, num_freqs))
+            ChanFreqNorm((in_channels, num_freqs))
         )
 
     def forward(self, x):
@@ -260,15 +298,15 @@ class TFARUnit(nn.Module):
         super(TFARUnit, self).__init__()
         self.w3 = nn.Sequential(
             nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, groups=in_channels, bias=False),
-            nn.InstanceNorm2d(num_features=out_channels)
+            nn.GroupNorm(num_groups=1, num_channels=out_channels)
         )
         self.w2 = nn.Sequential(
             nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, groups=in_channels, bias=False),
-            nn.InstanceNorm2d(num_features=out_channels),
+            nn.GroupNorm(num_groups=1, num_channels=out_channels),
         )
         self.w1 = nn.Sequential(
             nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, groups=in_channels, bias=False),
-            nn.InstanceNorm2d(num_features=out_channels),
+            nn.GroupNorm(num_groups=1, num_channels=out_channels),
             nn.Sigmoid(),
         )
     
@@ -321,7 +359,7 @@ class RTFSBlock(nn.Module):
                 groups=in_channels,
                 bias=False
             ),
-            nn.InstanceNorm2d(num_features=self.in_channels),
+            nn.GroupNorm(num_groups=1, num_channels=self.in_channels),
             nn.PReLU(),)
 
         self.cnn = nn.Sequential(
@@ -330,16 +368,16 @@ class RTFSBlock(nn.Module):
                 out_channels=self.hidden_size,
                 kernel_size=1
             ),
-            nn.InstanceNorm2d(num_features=self.hidden_size),
+            nn.GroupNorm(num_groups=1, num_channels=self.hidden_size),
             nn.PReLU(),)
 
         self.downsample_1 = nn.Sequential(
             nn.Conv2d(in_channels=hidden_size, out_channels=hidden_size, kernel_size=kernel_size, groups=hidden_size, stride=1, padding=(0, 1)),
-            nn.InstanceNorm2d(num_features=hidden_size)
+            nn.GroupNorm(num_groups=1, num_channels=hidden_size)
         )
         self.downsample_2 = nn.Sequential(
             nn.Conv2d(in_channels=hidden_size, out_channels=hidden_size, kernel_size=kernel_size, groups=hidden_size, stride=2, padding=(0, 1)),
-            nn.InstanceNorm2d(num_features=hidden_size)
+            nn.GroupNorm(num_groups=1, num_channels=hidden_size)
         )
         # not sure about output_size
         # self.pooling = nn.AdaptiveAvgPool2d(output_size=[audio_len//2, num_freqs//2])
@@ -408,6 +446,7 @@ class TFARUnitVideo(nn.Module):
         m is A_i, downsampled x
         n is A_G, attentioned features
         """
+        # TODO: check m and n sizes
         B, C, T = m.shape
         term1 = self.w1(n)
         # TODO: maybe add smarter interpolation?
@@ -659,6 +698,31 @@ class VideoProcessor(nn.Module):
         return self.final_conv(upsamples) + res
 
 
+class AudioProcessor(nn.Module):
+    def __init__(
+        self,
+        R: int = 4,
+        in_channels: int = 256,
+        out_channels: int = 64,
+        hidden_size: int = 64,
+        kernel_size: int = 4,
+    ):
+        super(AudioProcessor, self).__init__()
+        self.R = R
+        self.net = RTFSBlock(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            hidden_size=hidden_size,
+            kernel_size=kernel_size
+        )
+
+    def forward(self, x: torch.Tensor):
+        res = x
+        for i in range(self.R - 1):
+            x = self.net((x) if i == 0 else (x + res))
+        return x
+        
+
 class SeparationNetwork(nn.Module):
     """Full separation network in RTFS-Net architecture pipeline.
     Default hyperparameters are for the case of R=4 from the paper.
@@ -679,7 +743,8 @@ class SeparationNetwork(nn.Module):
     ):
         super(SeparationNetwork, self).__init__()
         self.R = R
-        self.audio_rtfs = RTFSBlock(
+        self.audio_rtfs = AudioProcessor(
+            R=R,
             in_channels=audio_channels,
             out_channels=out_channels,
             hidden_size=out_channels,
@@ -692,7 +757,7 @@ class SeparationNetwork(nn.Module):
             num_upsamples=num_upsamples,
             num_downsamples=num_upsamples,
         )
-        self.fusion_block = CAF(
+        self.fusion = CAF(
             in_channels_attn=audio_channels,
             in_channels_gt=video_channels,
             num_attn_heads=num_attn_heads,
@@ -700,20 +765,14 @@ class SeparationNetwork(nn.Module):
 
     def forward(self, audio: torch.Tensor, video: torch.Tensor):
         res_audio = audio
-        for i in range(self.R):
-            audio = self.audio_rtfs((audio + res_audio) if i > 0 else (audio))
-
+        audio = self.audio_rtfs(audio)
         video = self.video_processor(video)
-        audio = self.fusion_block(audio, video)
+        audio = self.fusion(audio, video)
+        # TODO: check whether to add 1 more round
+        for _ in range(self.R - 1):
+            audio = self.audio_rtfs(audio + res_audio)
 
-        # TODO: check this, maybe too many operations
-        for i in range(self.R - 1):
-            x = audio + res_audio
-            res = x
-            for j in range(self.R):
-                x = self.audio_rtfs((x + res) if j > 0 else x)
-
-        return x
+        return audio
 
 
 class SpectralSS(nn.Module):
