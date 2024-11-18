@@ -14,8 +14,8 @@ encoder:
   hop_length: 128
 
 optimizer:
-  _target_: torch.optim.Adam
-  lr: 3e-4
+  _target_: torch.optim.AdamW
+  lr: 1e-3
 
 lr_scheduler:
   _target_: torch.optim.lr_scheduler.OneCycleLR
@@ -26,7 +26,7 @@ lr_scheduler:
   anneal_strategy: cos
 
 loss_function:
-  _target_: src.loss.MAEWavLoss
+  _target_: src.loss.SiSNRWavLoss
 
 trainer:
   log_step: 50
