@@ -1,0 +1,7 @@
+defaults:
+  - instance_transforms: mel_spec
+  - _self_
+
+batch_transforms:
+  train: null
+  inference: null

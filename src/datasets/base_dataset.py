@@ -7,6 +7,9 @@ import torch
 import torchaudio
 from torch.utils.data import Dataset
 
+from src.lipreader.lipreading.dataloaders import get_preprocessing_pipelines
+from src.utils.init_utils import init_lipreader
+
 logger = logging.getLogger(__name__)
 
 
@@ -92,21 +95,12 @@ class BaseDataset(Dataset):
             s2_video_path = data_dict["s2_video_path"]
             s2_video = self.load_video(s2_video_path)
 
-        if data_dict["s1_embedding_path"] is not None:
-            s1_embedding_path = data_dict["s1_embedding_path"]
-            s1_embedding = self.load_object(s1_embedding_path)
-
-            s2_embedding_path = data_dict["s2_embedding_path"]
-            s2_embedding = self.load_object(s2_embedding_path)
-
         instance_data = {
             "mix": mix_audio,
             "s1": s1_audio,
             "s2": s2_audio,
             "s1_video": s1_video,
             "s2_video": s2_video,
-            "s1_embedding": s1_embedding,
-            "s2_embedding": s2_embedding,
             "audio_path": mix_wav_path,
         }
         # apply WAV augs before getting spec
@@ -132,9 +126,15 @@ class BaseDataset(Dataset):
         s2_spectrogram = self.get_spectrogram(s2_audio)
         instance_data.update({"s2_spectrogram": s2_spectrogram})
 
+        s1_embedding = self.get_embedding(s1_video)
+        instance_data.update({"s1_embedding": s1_embedding})
+
+        s2_embedding = self.get_embedding(s2_video)
+        instance_data.update({"s2_embedding": s2_embedding})
+
         # exclude WAV augs for prevending double augmentations
         instance_data = self.preprocess_data(
-            instance_data, special_keys=["get_spectrogram", "mix"]
+            instance_data, special_keys=["get_spectrogram", "get_embedding" "mix"]
         )
 
         return instance_data
@@ -168,6 +168,31 @@ class BaseDataset(Dataset):
             spectrogram (Tensor): spectrogram for the audio.
         """
         return torch.log(self.instance_transforms["get_spectrogram"](audio).clamp(1e-5))
+    
+    def get_embedding(self, video):
+        """
+        Special instance transform to get an embedding from video.
+
+        Args:
+            video (Tensor): original video.
+        Returns:
+            embedding (Tensor): embedding for the video.
+        """
+        cfg_path = "/src/lipreader/configs/lrw_resnet18_mstcn.json"
+        lipreader_path = "/lrw_resnet18_mstcn_video.pth"
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        lipreader = init_lipreader(cfg_path, lipreader_path).to(device)
+        lipreader.eval()
+
+        preprocessing_func = get_preprocessing_pipelines(modality="video")["test"]
+        s_data = preprocessing_func(video)
+        s_data = s_data.unsqueeze(0).unsqueeze(1).to(device)
+
+        with torch.no_grad():
+            embed = lipreader(s_data, lengths=[50]).squeeze(0).transpose(0, 1)
+        
+        return embed
 
     def get_magnitude(self, audio):
         stft = torch.stft(
