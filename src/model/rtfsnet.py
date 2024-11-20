@@ -44,7 +44,7 @@ class DPRNNUnit(nn.Module):
         self.norm = ChanNorm(dims=(in_channels, 1))
         self.unfold = nn.Unfold(kernel_size=(8, 1), stride=(1, 2))
         self.kernel_size = kernel_size
-        self.lstm = SRU(
+        self.sru = SRU(
             input_size=in_channels * kernel_size,
             hidden_size=hidden_size,
             num_layers=num_layers,
@@ -75,7 +75,7 @@ class DPRNNUnit(nn.Module):
         # x = x.unfold(dimension=2, size=self.kernel_size, step=1)  # [B*F, C, L, kernel_size]
         x = x.permute(2, 0, 1)  # [L, B*F, C, kernel_size]
         # x = x.reshape(-1, B * F, C * self.kernel_size)  # [L, B*F, C * kernel_size]
-        x, _ = self.lstm(x)
+        x, _ = self.sru(x)
         x = x.permute(1, 2, 0)  # [B*F, hidden_size*2, L] = [B*F, 64, 55] or [B*F, 64, 116]
 
         x = self.conv_transpose(x)
