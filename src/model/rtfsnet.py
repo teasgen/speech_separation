@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.nn.functional import adaptive_avg_pool2d, adaptive_avg_pool1d, interpolate
-
+from sru import SRU
 
 
 class AudioEncoder(nn.Module):
@@ -44,7 +44,7 @@ class DPRNNUnit(nn.Module):
         self.norm = ChanNorm(dims=(in_channels, 1))
         self.unfold = nn.Unfold(kernel_size=(8, 1), stride=(1, 2))
         self.kernel_size = kernel_size
-        self.lstm = nn.LSTM(
+        self.lstm = SRU(
             input_size=in_channels * kernel_size,
             hidden_size=hidden_size,
             num_layers=num_layers,
