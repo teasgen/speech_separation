@@ -40,26 +40,6 @@ class Trainer(BaseTrainer):
         outputs = self.model(**batch)
         batch.update(outputs)
 
-        # TODO: refactor so that code below depends on model (?)
-        if "s1_spec_pred" in batch:
-            for i in range(1, 3):
-                # inverse to what was done in get_magnitude
-                # TODO: make a separate function/class for this
-                spec = (
-                    torch.clamp(batch[f"s{i}_spec_pred"], 0.0, 1.0) - 1.0
-                ) * 100.0 + 20.0
-                spec = 10.0 ** (spec * 0.05)
-                complex_spectrum = torch.polar(spec, batch["mix_phase"])
-
-                batch[f"s{i}_pred"] = torch.istft(
-                    complex_spectrum,
-                    n_fft=self.n_fft,
-                    hop_length=self.hop_length,
-                    win_length=self.n_fft,
-                    center=True,
-                    window=self.window,
-                )
-
         all_losses = self.criterion(**batch)
         batch.update(all_losses)
 

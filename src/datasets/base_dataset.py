@@ -6,6 +6,7 @@ import numpy as np
 import torch
 import torchaudio
 from torch.utils.data import Dataset
+from src.encoders.stft import BaseEncoder
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +25,7 @@ class BaseDataset(Dataset):
         index,
         limit=None,
         target_sr=16000,
-        n_fft=400,
-        hop_length=100,
+        encoder: BaseEncoder=None,
         shuffle_index=False,
         instance_transforms=None,
     ):
@@ -45,8 +45,9 @@ class BaseDataset(Dataset):
         """
         self._assert_index_is_valid(index)
         self.target_sr = target_sr
-        self.n_fft = n_fft
-        self.hop_length = hop_length
+
+        if encoder is not None:
+            self.encoder = encoder
 
         index = self._shuffle_and_limit_index(index, limit, shuffle_index)
         self._index: List[dict] = index
@@ -115,22 +116,18 @@ class BaseDataset(Dataset):
         mix_spectrogram = self.get_spectrogram(mix_audio)
         instance_data.update({"mix_spectrogram": mix_spectrogram})
 
-        mix_magnitude, mix_phase = self.get_magnitude(mix_audio)
-        instance_data.update({"mix_magnitude": mix_magnitude, "mix_phase": mix_phase})
-        # now we have phase data
-
-        s1_spec_true, s1_phase = self.get_magnitude(s1_audio)
-        instance_data.update({"s1_spec_true": s1_spec_true})
-
-        s2_spec_true, s2_phase = self.get_magnitude(s2_audio)
-        instance_data.update({"s2_spec_true": s2_spec_true})
-        # for MSE spec loss calculation - for size consistency
-
         s1_spectrogram = self.get_spectrogram(s1_audio)
         instance_data.update({"s1_spectrogram": s1_spectrogram})
 
         s2_spectrogram = self.get_spectrogram(s2_audio)
         instance_data.update({"s2_spectrogram": s2_spectrogram})
+
+        if self.encoder:
+            if hasattr(self.encoder, "stft"):
+                complex_spectrogram = self.encoder.stft(mix_audio)
+            else:
+                raise AttributeError("Encoder should have stft method")
+            instance_data.update({"complex_spectrogram": complex_spectrogram})
 
         # exclude WAV augs for prevending double augmentations
         instance_data = self.preprocess_data(
@@ -155,7 +152,7 @@ class BaseDataset(Dataset):
 
     def load_video(self, path):
         data = np.load(path)
-        return torch.FloatTensor(data["data"]).unsqueeze(0)
+        return torch.FloatTensor(data["data"]).unsqueeze(0) #based on lipreader repo
 
     def get_spectrogram(self, audio):
         """

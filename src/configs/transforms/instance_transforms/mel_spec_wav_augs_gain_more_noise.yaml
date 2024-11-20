@@ -6,12 +6,10 @@ train:
     _target_: torchvision.transforms.v2.Compose
     transforms:
       - _target_: src.transforms.wav_augs.Gain
-        p: 0.0
-  #     - _target_: src.transforms.wav_augs.ColoredNoise
-  #       p: 0.1
-  #       sample_rate: 32
-  #     - _target_: src.transforms.wav_augs.Shift
-  #       p: 0.1
+        p: 0.1
+      - _target_: src.transforms.wav_augs.ColoredNoise
+        p: 0.5
+        sample_rate: 32
   # mix_spectrogram:
   #   _target_: torchvision.transforms.v2.Compose
   #   transforms:
