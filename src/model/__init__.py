@@ -4,5 +4,7 @@ from src.model.voicefilter import VoiceFilter
 from src.model.dprnn import DPRNNEncDec
 from src.model.dptn_wav import DPTNWavEncDec, DPTNAVWavEncDec
 from src.model.dptn import DPTNEncDec
+from src.model.dptn_wav import DPTNWavEncDec
+from src.model.rtfsnet import RTFSNetwork
 
-__all__ = ["BaselineModel", "SSBaselineModel", "VoiceFilter"]
+__all__ = ["BaselineModel", "SSBaselineModel", "VoiceFilter", "RTFSNetwork"]

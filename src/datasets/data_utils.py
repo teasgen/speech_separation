@@ -62,8 +62,14 @@ def get_dataloaders(config, device):
     batch_transforms = instantiate(config.transforms.batch_transforms)
     move_batch_transforms_to_device(batch_transforms, device)
 
+    # init encoder if present in config
+    if "encoder" in config:
+        encoder = instantiate(config.encoder)
+    else:
+        encoder = None
+
     # dataset partitions init
-    datasets = instantiate(config.datasets)  # instance transforms are defined inside
+    datasets = instantiate(config.datasets, encoder=encoder)  # instance transforms are defined inside
 
     # dataloaders init
     dataloaders = {}
