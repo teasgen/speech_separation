@@ -152,6 +152,7 @@ class DPTNAVWavEncDec(nn.Module):
         # 50% overlap
         self.encoder = nn.Conv1d(1, num_features, kernel_size=kernel_size_enc, stride=kernel_size_enc // 2, bias=False)
         self.visual_compression = nn.Linear(video_emb_size, hidden_video // 2)
+        self.gate = nn.Parameter(torch.randn([1]), requires_grad=True)
         self.video_ln = nn.LayerNorm(hidden_video)
         self.dprnn = DPTNWav(
             num_features=num_features,
@@ -180,7 +181,7 @@ class DPTNAVWavEncDec(nn.Module):
         video = F.interpolate(
             video.permute(0, 2, 1), size=encoded.shape[-1], mode="linear", align_corners=False
         ).permute(0, 2, 1)
-        encoded += self.video_ln(video).permute(0, 2, 1)
+        encoded += self.gate * self.video_ln(video).permute(0, 2, 1)
         hidden = self.dprnn(encoded)  # list of 2
         preds = []
         for x in hidden:
