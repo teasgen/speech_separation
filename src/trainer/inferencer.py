@@ -113,7 +113,7 @@ class Inferencer(BaseTrainer):
         batch = self.move_batch_to_device(batch)
         batch = self.transform_batch(batch)
 
-        outputs = self.model(mix_spectrogram=batch["mix_spectrogram"], mix=batch["mix"])
+        outputs = self.model(**batch)
         batch.update(outputs)
 
         if metrics is not None:
@@ -127,9 +127,7 @@ class Inferencer(BaseTrainer):
             for i in range(1, 3):
                 # inverse to what was done in get_magnitude
                 # TODO: make a separate function/
-                spec = (
-                    torch.clamp(batch[f"s{i}_spec_pred"], 0.0, 1.0) - 1.0
-                ) * 100.0 + 20.0
+                spec = (torch.clamp(batch[f"s{i}_spec_pred"], 0.0, 1.0) - 1.0) * 100.0 + 20.0
                 spec = 10.0 ** (spec * 0.05)
                 complex_spectrum = torch.polar(spec, batch["mix_phase"])
 
