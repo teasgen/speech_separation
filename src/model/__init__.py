@@ -5,9 +5,8 @@ from src.model.convtasnet import ConvTasNet
 from src.model.deepconvtasnet import DeepConvTasNet
 from src.model.deepavconvtasnet import DeepAVConvTasNet
 from src.model.dprnn import DPRNNEncDec
-from src.model.dptn_wav import DPTNWavEncDec
-from src.model.dptn_wav import DPTNAVWavEncDec
 from src.model.dptn import DPTNEncDec
+from src.model.dptn_wav import DPTNWavEncDec, DPTNAVWavEncDec
 from src.model.rtfsnet import RTFSNetwork
 
 __all__ = [
