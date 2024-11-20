@@ -17,6 +17,12 @@ optimizer:
   _target_: torch.optim.AdamW
   lr: 1e-3
 
+# lr_scheduler:
+#   _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+#   optimizer: ${optimizer}
+#   factor: 0.5
+#   patience: 49
+
 lr_scheduler:
   _target_: torch.optim.lr_scheduler.OneCycleLR
   max_lr: 0.0003
@@ -41,4 +47,4 @@ trainer:
   early_stop: ${trainer.n_epochs} # epochs for early stopping
   save_dir: "saved"
   seed: 1
-  max_grad_norm: 8
+  max_grad_norm: 5
