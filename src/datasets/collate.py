@@ -29,6 +29,8 @@ def collate_fn(dataset_items: list[dict]):
     pack_to_list_batch_keys = ["audio_path"]
     result_batch = {}
     for key in pack_to_tensors_batch_keys + pack_to_list_batch_keys:
+        if key not in dataset_items[0]:
+            continue
         if dataset_items[0][key] is None:  # e.g video
             result_batch[key] = None
             continue
