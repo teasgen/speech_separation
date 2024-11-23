@@ -125,3 +125,6 @@ __MACOSX/
 
 # pth models
 *.pth
+
+# test files
+test_rtfs.py

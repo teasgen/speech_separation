@@ -20,3 +20,4 @@ black
 isort
 pre-commit
 opencv-python
+gdown
