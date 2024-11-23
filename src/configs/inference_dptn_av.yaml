@@ -10,4 +10,4 @@ inferencer:
   device: auto # device name or "auto"
   save_path: "inferenced" # any name here, can be a dataset name
   seed: 42
-  from_pretrained: "saved/av_dptn_wav_av_v1_video_gate/model_best.pth"
+  from_pretrained: "av_dptn_wav_av_v1_video_tanh_gate/model_best.pth"

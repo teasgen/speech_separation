@@ -25,7 +25,7 @@ class BaseDataset(Dataset):
         index,
         limit=None,
         target_sr=16000,
-        encoder: BaseEncoder=None,
+        encoder: BaseEncoder = None,
         shuffle_index=False,
         instance_transforms=None,
     ):
@@ -46,8 +46,7 @@ class BaseDataset(Dataset):
         self._assert_index_is_valid(index)
         self.target_sr = target_sr
 
-        if encoder is not None:
-            self.encoder = encoder
+        self.encoder = None
 
         index = self._shuffle_and_limit_index(index, limit, shuffle_index)
         self._index: List[dict] = index
@@ -122,7 +121,7 @@ class BaseDataset(Dataset):
         s2_spectrogram = self.get_spectrogram(s2_audio)
         instance_data.update({"s2_spectrogram": s2_spectrogram})
 
-        if self.encoder:
+        if self.encoder is not None:
             if hasattr(self.encoder, "stft"):
                 complex_spectrogram = self.encoder.stft(mix_audio)
             else:
@@ -130,9 +129,7 @@ class BaseDataset(Dataset):
             instance_data.update({"complex_spectrogram": complex_spectrogram})
 
         # exclude WAV augs for prevending double augmentations
-        instance_data = self.preprocess_data(
-            instance_data, special_keys=["get_spectrogram", "mix"]
-        )
+        instance_data = self.preprocess_data(instance_data, special_keys=["get_spectrogram", "mix"])
 
         return instance_data
 
@@ -152,7 +149,7 @@ class BaseDataset(Dataset):
 
     def load_video(self, path):
         data = np.load(path)
-        return torch.FloatTensor(data["data"]).unsqueeze(0) #based on lipreader repo
+        return torch.FloatTensor(data["data"]).unsqueeze(0)  # based on lipreader repo
 
     def get_spectrogram(self, audio):
         """
@@ -196,19 +193,17 @@ class BaseDataset(Dataset):
         Returns:
             data_object (Tensor):
         """
-        if path.endswith('.npy'):
+        if path.endswith(".npy"):
             data_object = torch.from_numpy(np.load(path))
-        elif path.endswith('.npz'):
+        elif path.endswith(".npz"):
             with np.load(path) as data:
                 data_object = torch.from_numpy(data[next(iter(data))])
-        elif path.endswith('.pt') or path.endswith('.pth'):
+        elif path.endswith(".pt") or path.endswith(".pth"):
             data_object = torch.load(path)
-        
+
         return data_object.unsqueeze(0)
 
-    def preprocess_data(
-        self, instance_data, special_keys=["get_spectrogram"], single_key=None
-    ):
+    def preprocess_data(self, instance_data, special_keys=["get_spectrogram"], single_key=None):
         """
         Preprocess data with instance transforms.
 
@@ -228,17 +223,13 @@ class BaseDataset(Dataset):
 
         if single_key is not None:
             if single_key in self.instance_transforms:  # eg train mode
-                instance_data[single_key] = self.instance_transforms[single_key](
-                    instance_data[single_key]
-                )
+                instance_data[single_key] = self.instance_transforms[single_key](instance_data[single_key])
             return instance_data
 
         for transform_name in self.instance_transforms.keys():
             if transform_name in special_keys:
                 continue  # skip special key
-            instance_data[transform_name] = self.instance_transforms[transform_name](
-                instance_data[transform_name]
-            )
+            instance_data[transform_name] = self.instance_transforms[transform_name](instance_data[transform_name])
         return instance_data
 
     @staticmethod
@@ -277,8 +268,7 @@ class BaseDataset(Dataset):
         """
         for entry in index:
             assert "mix_wav_path" in entry, (
-                "Each dataset item should include field 'mix_wav_path'"
-                " - path to mix audio file."
+                "Each dataset item should include field 'mix_wav_path'" " - path to mix audio file."
             )
 
     @staticmethod

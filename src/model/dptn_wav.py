@@ -181,7 +181,7 @@ class DPTNAVWavEncDec(nn.Module):
         video = F.interpolate(
             video.permute(0, 2, 1), size=encoded.shape[-1], mode="linear", align_corners=False
         ).permute(0, 2, 1)
-        encoded += self.gate * self.video_ln(video).permute(0, 2, 1)
+        encoded += self.gate.tanh() * self.video_ln(video).permute(0, 2, 1)
         hidden = self.dprnn(encoded)  # list of 2
         preds = []
         for x in hidden:
