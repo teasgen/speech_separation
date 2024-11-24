@@ -36,7 +36,7 @@ Follow these steps to install the project:
    conda activate project_env
    ```
 
-1. Install all required packages
+1. Install all required packages:
 
    ```bash
    pip install -r requirements.txt
@@ -83,7 +83,7 @@ wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1egOS
 tar xvf ./model.tar
 ```
 
-To run inference and claculate metrics provide custom dataset and run
+To run inference and calculate metrics, provide custom dataset and run:
    ```bash
    python3 inference.py -cn inference_dptn_av.yaml dataloader.batch_size=32 inferencer.from_pretrained=model_best.pth
    ```
@@ -91,6 +91,10 @@ To run inference and claculate metrics provide custom dataset and run
 
    In case you don't have GT please change `device_tensors` in `inference_dptn_av.yaml` config to `device_tensors: ["mix_spectrogram", "mix", "s1_embedding", "s2_embedding"]`, following that metrics won't be calculated and only predictions will be saved.
 
+To evaluate the computational performance of the model, run:
+   ```bash
+   python3 profiler.py
+   ```
 ## Credits
 
 This repository is based on a [PyTorch Project Template](https://github.com/Blinorot/pytorch_project_template).
