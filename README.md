@@ -73,7 +73,7 @@ python3 train.py -cn dptn_wav_av.yaml dataloader.batch_size=16 writer.run_name=a
 Moreover, training logs are available in WandBs
 
 - DPRNN & DPTN https://wandb.ai/teasgen/ss/overview
-- TasNet https://wandb.ai/verabuylova-nes/ss/overview
+- ConvTasNet https://wandb.ai/verabuylova-nes/ss/overview
 - VoiceFilter & RTFS https://wandb.ai/aapetukhov-new-economic-school/ss?nw=nwuseraapetukhov
 
 ## How To Evaluate
