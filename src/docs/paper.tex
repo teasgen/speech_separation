@@ -55,7 +55,7 @@ anchorcolor = BlueViolet
 \maketitle
 
 \begin{abstract}
-  This paper investigates state-of-the-art speech spearation (SS) models with a focus on audio-visual (AV) methods. We evaluate existing audio-only and audio-visual architectures, e.g. ConvTasNet, DPRNN, DPTNet, and extend their functionality by integrating visual information. We also experiment with existing target source separation model, VoiceFilter, and test the existing audio-visual solution, RTFSNet. Our experiments demonstrate a significant performance boost with utilization of AV fusion techniques. The proposed AV-DPTN model achieves the highest quality among the tested models while maintaining computational efficiency. The codebase for this paper is publicly available on GitHub at \url{https://github.com/teasgen/speech_separation}.
+  This paper investigates state-of-the-art speech spearation models with a focus on audio-visual methods. We evaluate existing audio-only and audio-visual architectures, e.g. ConvTasNet, DPRNN, DPTNet, and extend their functionality by integrating visual source. We also experiment with existing target source separation model, VoiceFilter, and test the existing audio-visual solution, RTFSNet. Our experiments demonstrate a significant performance boost with utilization of AV fusion techniques with the existing audio-only solutions. The proposed AV-DPTN model achieves the highest quality among the tested models while maintaining computational efficiency. The codebase for this paper is publicly available on GitHub at \url{https://github.com/teasgen/speech_separation}.
 \end{abstract}
 
 \section{Introduction}\label{sec:introduction}
@@ -64,13 +64,13 @@ Audio source separation (SS) is an area in deep learning with applications rangi
 
 The majority of TSS methods require a reference audio, which is a short, clean recording of the target speaker's voice. This audio serves as a unique identifier of the speaker (Wang et al., 2018\cite{wang2019voicefilter}; Ge et al., 2020\cite{ge2020spexplus}). These methods minimize L2 loss between the predicted and reference spectrograms, thus, to predict an audio, one need to transform the spectrogram to the waveform to reconstruct the target signal.
 
-In BSS problems, multiple sources are separated simultaneously, which creates a problem where the model must decide to which source corresponds each output. Permutation-Invariant Training (PIT)\cite{yu2017permutation} minimizes the loss by considering all possible permutations of predicted and ground truth sources. This loss function is used in many time-domain methods (Luo \& Mesgarani, 2019\cite{luo2018tasnet}; Luo et al., 2020\cite{luo2019convtasnet}). However, due to its neglect of the frequency domain, these methods face limitations in a so-called cocktail party problem, when the audio is recorded in a noisy environment. 
+In BSS problems, multiple sources are separated simultaneously, which creates a problem where the model must decide to which source corresponds each output. Permutation-Invariant Training (PIT)\cite{yu2017permutation} minimizes the loss by considering all possible permutations of predicted and ground truth sources. This strategy is used in many time-domain methods (Luo \& Mesgarani, 2019\cite{luo2018tasnet}; Luo et al., 2020\cite{luo2019convtasnet}). However, due to its neglect of the frequency domain, these methods face limitations in a so-called cocktail party problem, when the audio is recorded in a noisy environment. 
 
 Many methods tried to extend the existing time-domain methods by including the frequency information (Afouras et al., 2018\cite{afouras2018deep}). However these methods only increase the already high computational requirements and have proved to be inefficient.
 
 In recent years, audio-visual (AV) learning has gained attention as an approach to enhance SS quality by utilizing visual information (e.g. lip movements) alongside with the audio one. The common approaches to work with audio-visual information are early fusion, where the features from both modalities are combined at the input stage for the joint processing (i.e. there is one model for both modalities), or late fusion, where the audio and visual features are pre-processed with different models. The current SOTAs (Li et al., 2022; Pegg et al., 2024) use the pretrained encoders for each domain, and then utilize the model that share information between adjacent processing layers (audio and video), thus, combining both early and late fusion.
 
-In this work, we experiment with existing SOTA architectures to achieve a maximum separation quality for the mix audio of two speakers while trying to maintain low resource consumption. We conducted comprehensive experimental evaluations on the dataset provided by the teachers.  The rest of the paper is organized as follows. Section II presents the existing solutions. In Section III, we propose our methods that gained the highest scores. In Section IV, we describe the experimental setup, the results of which we present in section V. Finally, we sum up our findings in Section VI.
+In this work, we experiment with existing SOTA architectures to achieve a maximum separation quality for the mix audio of two speakers while trying to maintain low resource consumption. We conducted comprehensive experimental evaluations on the dataset provided by the teachers.  The rest of the paper is organized as follows. Section II presents the existing solutions. In Section III, we describe the methodology used to conduct the experiments. In Section IV, we describe the conducted ablation studies and its results. We present the model that has achieved the highest quality in section V. Finally, we sum up our findings in Section VI.
 
 \section{Related Work}\label{sec:related_work}
 
@@ -192,13 +192,13 @@ Masking & Epochs & SI-SNR (dB)$\uparrow$ \\ \hline
 \end{tabular}
 \end{table}
  
- As shown in Table III despite pretty good initial metrics after 1 epoch the masking mechanism works worse for this model after several epochs.
+ As shown in Table III, despite good initial metrics, after 1 epoch the masking mechanism works worse for this model after several epochs.
 
 \subsection{\textbf{DPTN -- like architectures}}
-The success and simplicity of DPTN model forced us to try it. The architecture parameters were as same as in the paper. To make experiments consistent we chose chunk size and kernel size equal to DPRNN experimetns, also the optimizer and LR were left the same, but we applied gradient clipping in transformer model for preventing gradient explosion. This approach won't affect DPRNN training due to small gradient norm during most part of process.
+The success and simplicity of DPTN model forced us to try it. The architecture parameters were as same as in the paper. To make experiments consistent we chose chunk size and kernel size equal to DPRNN experimetns, also the optimizer and LR were left the same, but we applied gradient clipping in transformer model to prevent gradient explosion. This approach didn't affect DPRNN training due to small gradient norm during most part of process.
 
 The ablation of DPTN masking mechanism in previous stage stimulated to try raw audio prediction instead of paper's method.
-As shown in Table IV DPTN is much better than DPRNN and the raw wav prediction is preferably. The number of epochs was 93 (plateau) for all experiments.
+As shown in Table IV, DPTN is much better than DPRNN and the raw wav prediction is preferably. The number of epochs was 93 (plateau) for all experiments.
 
 \begin{table}[H]
 \centering
@@ -230,9 +230,9 @@ Fusion type & Epochs (plateau) & Model Size (M) & SI-SNR (dB)$\uparrow$ \\ \hlin
 In Table V you may see that gate fusion is slightly better than raw addition operation and visual features are extremely enhance model quality.
 
 \subsection{\textbf{RTFS-Net}}
-Another architecture that we implemented was RTFS-Net. The lightest model from the article (link), RTFS-Net-4, was used, resulting in a 0.8M parameters model. Although RTFS-Net-6 and other models have the same size (in number of parameters), they were not trained due to high memory demands of the TDANet (link) architecture which is used in audio and video processing. Training was performed with no more than 200 epochs, but early stopping was applied when the loss reached plateau. AdamW with learning rate equal to $10^{-3}$ was chosen as the optimizer and OneCycleLR (link) as the scheduler. The maximum gradient norm was set to 8.
+Another architecture that we implemented was RTFS-Net. The lightest model from the article \cite{pegg2024rtfsnet}, RTFS-Net-4, was used, resulting in a 0.8M parameters model. Although RTFS-Net-6 and other models have the same size (in number of parameters), they were not trained due to high memory demands of the TDANet \cite{tdanet} architecture which is used in audio and video processing. Training was performed with no more than 200 epochs, but early stopping was applied when the loss reached plateau. AdamW with learning rate equal to $10^{-3}$ was chosen as the optimizer and OneCycleLR as the scheduler. The maximum gradient norm was set to 8.
 
-Following the paper's encoder architecture, we employed raw complex-valued STFT as audio encoder with Fourier transform size 256 and hop length 128. As a video encoder, we used a pretrained ResNet18 MS-TCN model (link) with 3D convolutions to extract 512-dimensional embeddings of the lip movements of speakers.
+Following the paper's encoder architecture, we employed raw complex-valued STFT as audio encoder with Fourier transform size 256 and hop length 128. As a video encoder, we used a pretrained lipreader to extract 512-dimensional embeddings of the lip movements of speakers.
 
 In contrast to the original paper, our network was trained to extract both speakers from the audio, i.e. the output of the network consisted of two clean audio samples. Instead of SRU, we used a 4-layer bidirectional LSTM.
 
@@ -249,10 +249,34 @@ R & Max. Grad. Norm & Size (M) & Video Embedding Size & SI-SNR (dB)$\uparrow$ \\
 }
 \end{table}
 
-\subsection{VoiceFilter}
-We have tried to adapt the audio-only VoiceFilter (link) architecture to make it an audio-visual model by substituing the d-vector with a 1024-dimensional 
+\subsection{\textbf{VoiceFilter}}
+We attempted to adapt the VoiceFilter \cite{wang2019voicefilter} audio-only architecture for an audio-visual task. The model was trained for no more than 100 epochs using the AdamW optimizer with a learning rate of 0.001, and OneCycleLRScheduler. To incorporate visual information, we replaced d-vector embeddings with video embeddings obtained from the pre-trained lipreader snv1x-tcn1x from the lipreading repository.
+
+Given that the video embedding has dimensions $T_v \times D$, where $T_v = 50$ and $D = 1024$, the embeddings were further processed with a trainable GRU layer and a linear layer to compute the final $d$-vectors. For detailed descriptions, see Appendix B.
+
+Despite experimenting with LSTM and GRU architectures, and applying various aggregation strategies for the recurrent layer outputs, the results were unsuccessful. Table VII summarizes the results under different loss functions. We conclude that further architectural changes are necessary for successful adaptation.
+
+\begin{table}[h!]
+\centering
+\caption{VoiceFilter training results under different loss functions.}
+\resizebox{\columnwidth}{!}{
+\begin{tabular}{|c|c|c|c|c|c|}
+\hline
+Loss & Size (M) & RNN & Max. Grad. Norm & D-vec size & SI-SNR (dB)$\uparrow$ \\ \hline
+Si-SNR Wav & 7.8 & GRU & 2 & 1024 & 0.16 \\ \hline
+L1 Spec & 7.8 & GRU & $\infty$ & 1024 & 0.08 \\ \hline
+L2 Spec & 7.8 & LSTM & 6 & 1024 & -0.98 \\ \hline
+\end{tabular}
+}
+\end{table}
+
 \section{Results}\label{sec:results}
-We have tried many Blind Speech Separation models and provided relevant ablation studies. We also experimented with visual features and got significant boost using it. Unexpectedly predicting masks instead of raw audio performs noticeably worse, than the validation loss goes out to the plateau. The best model is DPTN, which was expanded for using visual information and its final results are presented in Table VII.
+We have tried many Blind Speech Separation models and provided relevant ablation studies. During ablation studies, which are fully described in previous section, we got some insights:
+\begin{enumerate}
+    \item Visual features have significantly boosted BSS model performance.
+    \item Predicting masks instead of raw audio performed noticeably worse in SI-SNRi terms, than the validation loss went out to the plateau.
+\end{enumerate}
+The best model is DPTN, which was expanded for using visual information and its final results are presented in Table VIII.
 \begin{table}[H]
 \centering
 \caption{Final best model AV-DPTN results on validation split}
@@ -313,6 +337,29 @@ The gate function may be one of
     \item Learnable scalar (used in DPTN experiments)
     \item Tanh postprocessed learnable scalar (used in DPTN experiments)
 \end{itemize}
+
+\subsection{VoiceFilter d-vector extraction from video embeddings}\label{sec:vf}
+\begin{lstlisting}[mathescape=true]
+Input:
+    Video data $x \in \mathbb{R}^{B \times T_v \times H \times W}$
+    RNN with hidden size $H$, output size $H_{\text{out}}$
+
+Step 1: Extract video embedding
+    $e \leftarrow \text{Lipreader}(x)$
+    $e \in \mathbb{R}^{B \times T_v \times D}$
+
+Step 2: Process embedding with GRU
+    $h, \ \_ \leftarrow \text{RNN}(e)$
+    $h \in \mathbb{R}^{B \times T_v \times H}$
+
+Step 3: Compute d-vector using the last RNN step
+    $d \leftarrow \text{Linear}(h[:, -1, :])$
+    $d \in \mathbb{R}^{B \times H_{\text{out}}}$
+
+Output:
+    $d$-vector $d$
+\end{lstlisting}
+The RNN is either LSTM or GRU
 
 
 \end{document}
