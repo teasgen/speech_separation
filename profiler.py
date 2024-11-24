@@ -5,7 +5,7 @@ import torch.nn as nn
 from src.utils.init_utils import init_lipreader
 from src.model import DPTNAVWavEncDec
  
-device = "cuda:7"
+device = "cuda:0"
  
 class VideoSSModel(nn.Module):
     def __init__(self, ss: nn.Module):
