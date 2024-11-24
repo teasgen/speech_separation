@@ -10,7 +10,7 @@
   <a href="#about">About</a> •
   <a href="#installation">Installation</a> •
   <a href="#how-to-extract-video-embeddings">How To Extract Video Embeddings</a> •
-  <a href="#how-to-do-train">How To Do Train</a> •
+  <a href="#how-to-train">How To Train</a> •
   <a href="#how-to-evaluate">How To Evaluate</a> •
   <a href="#credits">Credits</a> •
   <a href="#license">License</a>
@@ -60,7 +60,7 @@ python make_embeddings.py \
 ```
 The embeddings will be saved to `--embeds_dir`. Please set correct path to your directory in all Hydra configs at Datasets level
 
-## How To Do Train
+## How To Train
 You should have single A100-80gb GPU to exactly reproduce training, otherwise please implement and use gradient accumulation
 
 To train a model, run the following commands and register in WandB:
