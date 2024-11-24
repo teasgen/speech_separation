@@ -74,7 +74,7 @@ Moreover, training logs are available in WandBs
 
 - DPRNN & DPTN https://wandb.ai/teasgen/ss/overview
 - TasNet https://wandb.ai/verabuylova-nes/ss/overview
-- VoiceFilter & RTFS
+- VoiceFilter & RTFS https://wandb.ai/aapetukhov-new-economic-school/ss?nw=nwuseraapetukhov
 
 ## How To Evaluate
 All generated texts will be saved into `data/saved/inferenced/<dataset part>` directory with corresponing names. Download SOTA pretrained model using
