@@ -115,11 +115,12 @@ class BaseDataset(Dataset):
         mix_spectrogram = self.get_spectrogram(mix_audio)
         instance_data.update({"mix_spectrogram": mix_spectrogram})
 
-        s1_spectrogram = self.get_spectrogram(s1_audio)
-        instance_data.update({"s1_spectrogram": s1_spectrogram})
+        if s1_audio is not None:
+            s1_spectrogram = self.get_spectrogram(s1_audio)
+            instance_data.update({"s1_spectrogram": s1_spectrogram})
 
-        s2_spectrogram = self.get_spectrogram(s2_audio)
-        instance_data.update({"s2_spectrogram": s2_spectrogram})
+            s2_spectrogram = self.get_spectrogram(s2_audio)
+            instance_data.update({"s2_spectrogram": s2_spectrogram})
 
         if self.encoder is not None:
             if hasattr(self.encoder, "stft"):
