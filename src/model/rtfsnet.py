@@ -13,13 +13,11 @@ class AudioEncoder(nn.Module):
         super(AudioEncoder, self).__init__()
 
         self.net = nn.Sequential(
-            nn.GroupNorm(num_groups=1, num_channels=in_channels),
+            nn.InstanceNorm2d(num_features=in_channels, affine=True),
             nn.ReLU(),
             nn.Conv2d(in_channels=2, out_channels=out_channels, kernel_size=1, bias=False),
-            nn.GroupNorm(num_groups=1, num_channels=out_channels),
+            nn.InstanceNorm2d(num_features=out_channels, affine=True),
             nn.ReLU(),
-            # nn.GroupNorm(num_groups=1, num_channels=out_channels),
-            # nn.ReLU(),
             nn.Conv2d(in_channels=out_channels, out_channels=out_channels, kernel_size=1, bias=False),
         )
 
@@ -209,16 +207,16 @@ class TFDecepticon(nn.Module):
         res = x
         queries = [q(x) for q in self.q] # [B, 4, T, F]
         keys = [k(x) for k in self.k]
-        values = [v(x) for v in self.v] #[B, 16, T, F]
+        values = [v(x) for v in self.v]
 
         Q_l = torch.cat(queries, dim=0)  # [4*B, 4, T, F]
         K_l = torch.cat(keys, dim=0)
-        V_l = torch.cat(values, dim=0)  # [4*B, 16, T, F]
+        V_l = torch.cat(values, dim=0)
 
         Q_l = Q_l.transpose(1, 2).flatten(start_dim=2)  # [4*B, T, 4*F]
         K_l = K_l.transpose(1, 2).flatten(start_dim=2)
 
-        V_l = V_l.transpose(1, 2) # [4*B, T, 1, F]
+        V_l = V_l.transpose(1, 2)
         target_shape = V_l.shape
         V_l = V_l.flatten(start_dim=2) # [4*B, T, F]                 
 
@@ -229,15 +227,15 @@ class TFDecepticon(nn.Module):
 
         # attn
         A_l = torch.matmul(attention_matrix, V_l) # [4*B, T, F]
-        A_l = A_l.view(target_shape) # [4*B, T, 16, F]
-        A_l = A_l.transpose(1, 2) # [4*B, 16, T, F]
+        A_l = A_l.view(target_shape)
+        A_l = A_l.transpose(1, 2)
 
         B, C, T, F = x.shape
-        x = A_l.view(self.num_heads, B, self.in_channels // self.num_heads, T, F)  # [4, B, 1, T, F]
+        x = A_l.view(self.num_heads, B, self.in_channels // self.num_heads, T, F)
         x = x.transpose(0, 1).contiguous() # [B, 4, 16, T, F]
         x = x.view(B, self.in_channels, T, F) # [B, 4, T, F]
-        x = self.linear(x) # [B, 4, T, F]
-        x = x + res # [B, 4, T, F]
+        x = self.linear(x)
+        x = x + res
 
         return x
 
@@ -298,15 +296,15 @@ class TFARUnit(nn.Module):
         super(TFARUnit, self).__init__()
         self.w3 = nn.Sequential(
             nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, groups=in_channels, bias=False),
-            nn.GroupNorm(num_groups=1, num_channels=out_channels)
+            nn.InstanceNorm2d(num_features=out_channels, affine=True),
         )
         self.w2 = nn.Sequential(
             nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, groups=in_channels, bias=False),
-            nn.GroupNorm(num_groups=1, num_channels=out_channels),
+            nn.InstanceNorm2d(num_features=out_channels, affine=True),
         )
         self.w1 = nn.Sequential(
             nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, groups=in_channels, bias=False),
-            nn.GroupNorm(num_groups=1, num_channels=out_channels),
+            nn.InstanceNorm2d(num_features=out_channels, affine=True),
             nn.Sigmoid(),
         )
     
