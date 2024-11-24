@@ -116,30 +116,10 @@ class Inferencer(BaseTrainer):
         outputs = self.model(**batch)
         batch.update(outputs)
 
-        if metrics is not None:
-            for met in self.metrics["inference"]:
-                metrics.update(met.name, met(**batch))
-
         batch_size = batch["s1_pred"].shape[0]
         current_id = batch_idx * batch_size
-        # TODO: refactor so that code below depends on model (?)
-        if "s1_pred" in batch:
-            # for i in range(1, 3):
-                # # inverse to what was done in get_magnitude
-                # # TODO: make a separate function/
-                # spec = (torch.clamp(batch[f"s{i}_spec_pred"], 0.0, 1.0) - 1.0) * 100.0 + 20.0
-                # spec = 10.0 ** (spec * 0.05)
-                # complex_spectrum = torch.polar(spec, batch["mix_phase"])
-
-                # batch[f"s{i}_pred"] = torch.istft(
-                #     complex_spectrum,
-                #     n_fft=self.n_fft,
-                #     hop_length=self.hop_length,
-                #     win_length=self.n_fft,
-                #     center=True,
-                #     window=self.window,
-                # )
-
+        # Contains GT
+        if batch["s1"] is not None:
             if metrics is not None:
                 for met in self.metrics["inference"]:
                     metrics.update(met.name, met(**batch))
@@ -166,6 +146,25 @@ class Inferencer(BaseTrainer):
                         )
 
                 return batch
+        else:
+            for i in range(batch_size):
+                s1_pred = batch["s1_pred"][i].clone()
+                s2_pred = batch["s2_pred"][i].clone()
+
+                output_id = current_id + i
+
+                output = {
+                    "s1_pred": s1_pred,
+                    "s2_pred": s2_pred,
+                }
+
+                if self.save_path is not None:
+                    torch.save(
+                        output,
+                        self.save_path / part / f"output_{output_id}.pth",
+                    )
+
+            return batch
 
     def _inference_part(self, part, dataloader):
         """
