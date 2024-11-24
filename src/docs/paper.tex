@@ -1,0 +1,318 @@
+\documentclass[10pt,conference,compsocconf]{IEEEtran}
+
+\usepackage[dvipsnames]{xcolor}
+
+
+\PassOptionsToPackage{hyphens}{url}\usepackage[
+colorlinks = true,
+linkcolor = BlueViolet,
+urlcolor  = BlueViolet,
+citecolor = BlueViolet,
+anchorcolor = BlueViolet
+]{hyperref}
+\usepackage{graphicx}	% For figure environment
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{tabularx}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{listings}
+
+\lstset{
+    basicstyle=\ttfamily,
+    breaklines=true,
+    frame=single,
+    xleftmargin=0.05\textwidth,
+    xrightmargin=0.05\textwidth,
+    backgroundcolor=\color{lightgray!10},
+    keywordstyle=\color{blue},
+    keywordstyle=\color{purple},
+    commentstyle=\color{gray},
+    escapeinside={(*}{*)}
+}
+
+
+
+\begin{document}
+\title{Investigation of Speech Separation Models Including Video Source}
+
+\author{
+  Vladislav Smirnov\\
+  \textit{FCS, HSE, Moscow}\\
+  \texttt{vmsmirnov@edu.hse.ru}\\ \ \\
+  \and
+  Andrey Petukhov\\
+  \textit{FES, HSE, Moscow}\\
+  \texttt{aapetukhov\_1@edu.hse.ru}\\ \ \\
+  \textit{Last Edit Date: \today}
+  \and
+  Vera Buylova\\
+  \textit{FES, HSE, Moscow}\\
+  \texttt{vbuylova@edu.hse.ru}\\ \ \\
+}
+
+\maketitle
+
+\begin{abstract}
+  This paper investigates state-of-the-art speech spearation (SS) models with a focus on audio-visual (AV) methods. We evaluate existing audio-only and audio-visual architectures, e.g. ConvTasNet, DPRNN, DPTNet, and extend their functionality by integrating visual information. We also experiment with existing target source separation model, VoiceFilter, and test the existing audio-visual solution, RTFSNet. Our experiments demonstrate a significant performance boost with utilization of AV fusion techniques. The proposed AV-DPTN model achieves the highest quality among the tested models while maintaining computational efficiency. The codebase for this paper is publicly available on GitHub at \url{https://github.com/teasgen/speech_separation}.
+\end{abstract}
+
+\section{Introduction}\label{sec:introduction}
+
+Audio source separation (SS) is an area in deep learning with applications ranging from denoising the conference calls to reconstructing the individual audio source (e.g. voice, guitar) from a music track. The central challenge of SS lies in the separation a mixture of signals into its consistent components. This task is often categorized into blind source separation (BSS), when there is a need to separate a number of sources from one another, and target source separation (TSS), when there is a specific target source given by reference. In this paper, we'll be focusing on BSS methods. However, TSS methods are also suitable for the task of separating $\mathit{k}$ sources if a ground truth audio for each speaker is provided. In this case, one can treat a problem as $\mathit{k}$ independent TSS tasks. 
+
+The majority of TSS methods require a reference audio, which is a short, clean recording of the target speaker's voice. This audio serves as a unique identifier of the speaker (Wang et al., 2018\cite{wang2019voicefilter}; Ge et al., 2020\cite{ge2020spexplus}). These methods minimize L2 loss between the predicted and reference spectrograms, thus, to predict an audio, one need to transform the spectrogram to the waveform to reconstruct the target signal.
+
+In BSS problems, multiple sources are separated simultaneously, which creates a problem where the model must decide to which source corresponds each output. Permutation-Invariant Training (PIT)\cite{yu2017permutation} minimizes the loss by considering all possible permutations of predicted and ground truth sources. This loss function is used in many time-domain methods (Luo \& Mesgarani, 2019\cite{luo2018tasnet}; Luo et al., 2020\cite{luo2019convtasnet}). However, due to its neglect of the frequency domain, these methods face limitations in a so-called cocktail party problem, when the audio is recorded in a noisy environment. 
+
+Many methods tried to extend the existing time-domain methods by including the frequency information (Afouras et al., 2018\cite{afouras2018deep}). However these methods only increase the already high computational requirements and have proved to be inefficient.
+
+In recent years, audio-visual (AV) learning has gained attention as an approach to enhance SS quality by utilizing visual information (e.g. lip movements) alongside with the audio one. The common approaches to work with audio-visual information are early fusion, where the features from both modalities are combined at the input stage for the joint processing (i.e. there is one model for both modalities), or late fusion, where the audio and visual features are pre-processed with different models. The current SOTAs (Li et al., 2022; Pegg et al., 2024) use the pretrained encoders for each domain, and then utilize the model that share information between adjacent processing layers (audio and video), thus, combining both early and late fusion.
+
+In this work, we experiment with existing SOTA architectures to achieve a maximum separation quality for the mix audio of two speakers while trying to maintain low resource consumption. We conducted comprehensive experimental evaluations on the dataset provided by the teachers.  The rest of the paper is organized as follows. Section II presents the existing solutions. In Section III, we propose our methods that gained the highest scores. In Section IV, we describe the experimental setup, the results of which we present in section V. Finally, we sum up our findings in Section VI.
+
+\section{Related Work}\label{sec:related_work}
+
+The audio-only source separation has driven a comprehensive research in this domain, producing the methods that have achieved a high separation quality. TasNet\cite{luo2018tasnet}, includes a CNN encoder and LSTM layers that are used to process the uncompressed audio. This method is also utilized in ConvTasNet\cite{luo2019convtasnet} that differed from the previous one by replacing the recurrent layers with a Temporal Convolutional Network (TCN), which allowed the model to handle the inputs of an arbitrary length. The model uses a linear encoder to represent the speech waveform, applies masks using a TCN to separate speakers, and reconstructs the waveforms with a linear decoder. Empirical studies\cite{kadioglu2020empirical} have proved that adding deep encoder and decoder (i.e. sequential application of the convolutional layers) gives a significant quality boost to the model.
+
+Although these models reach high separation quality, they have a large number of parameters and require a lot of time to train. Another architecture that is based on the TasNet approach uses the method that divides the audio into overlapping chunks and applies intra- and inter-chunk operations iteratively. This approach is used in Dual-path RNN\cite{luo2020dprnn}, and it allows the model to capture both local and global dependencies. By replacing 1-D CNN layer used in TasNet with DPRNN, the model has reached a new state-of-the-art quality while also reducing the computational complexity.
+
+Although achieving high performance metrics, both RNN and CNN methods face limitations in efficiently capturing the information about the context over long sequences. To address this, Dual-Path Transformer Network\cite{chen2020dptnet} was proposed. By integrating RNNs into the self-attention mechanism of transformers, DPTNet has reached a high performance results the problem of modeling of long speech sequences.
+
+CTCNet\cite{li2022ctcnet}, inspired by cortico-thalamo-cortical circuits, integrates audio and visual modalities by employing separate auditory and visual subnetworks to learn hierarchical representations, which are then fused through a thalamic subnetwork using top-down connections. This approach enables information sharing between modalities. RTFSNet\cite{pegg2024rtfsnet} also uses the idea of the shared parameters. This model operates in the time-frequency domain using a DPRNN-like pipeline on compressed audio-visual inputs. It first applies the Short-Time Fourier Transform (STFT) to obtain the input representation and then integrates audio and visual information using an attention-based fusion mechanism. RTFSNet achieves state-of-the-art performance while significantly reducing the number of iterations and parameters.
+
+VoiceFilter\cite{wang2019voicefilter} is a target speech separation model that isolates a specific speaker’s voice from a mixture using a short reference audio. The model generates a speaker embedding from the reference and uses it to condition a spectrogram masking network.
+
+This paper builds upon existing research in both audio-only and audio-visual blind source separation. In this project, 
+
+\begin{itemize}
+	\item We developed a codebase for traning both audio-only and audio-vidual BSS and TSS models. 
+	\item Our experiments include evaluations of state-of-the-art audio-only models. We first started with the classic architectures (ConvTasNet and DPRNN). We then experimented with the enhanced versions of these models, such as Deep-Encoder-Decoder-Conv-TasNet and DPTNet. 
+	\item We used the VoiceFilter-based model to evaluate the suitability of the TSS pipeline for this task with. 
+	\item We extended our study to audio-visual models. We first started with a SOTA architecture RTFSNet. We then extended the previously mentioned audio models to the visual domain by combining the video and audio embeddings. 
+\end{itemize}
+
+The last approach of extending DPTNet to the visual domain has proven to be the most efficient, balancing both low computational complexity and high separation quality.
+
+\section{Methodology}\label{sec:methodology}
+\textbf{Dataset.} The models were trained and tested on a two-speaker speech separation dataset consisting of mixed audios and ground truth audios for each speaker with a sampling rate of 16 kHz. The visual part of the dataset included videos of the lip movements for each speaker, represented as a series of 50 frames, each with a resolution of 96 × 96 pixels.
+
+\textbf{Encoders.} For our video encoder, we utilized the pre-trained Multi-Scale TCN lip reading network\cite{martinez2020lipreading}. This encoder takes a sequence of $T = 50$ grayscale video frames of size \( 96 \times 96 \), corresponding to one video clip structured as an array of shape \( (50, 96, 96) \). It outputs an embedding of size \( 512 \) for each frame, resulting in an embedding matrix of shape \( (50, 512) \).
+
+\textbf{Training objective.} The training objective is maximizing the scale-invariant signal-to-noise ratio (SI-SNR), which is calculated as:
+\[
+\text{SI-SNR} = 10 \cdot \log_{10} \frac{\| \mathbf{s}_{\text{target}} \|^2}{\| \mathbf{e}_{\text{noise}} \|^2},
+\]
+
+where:
+
+\[
+\mathbf{s}_{\text{target}} = \frac{\langle \hat{\mathbf{s}}, \mathbf{s} \rangle}{\|\mathbf{s}\|^2} \mathbf{s},
+\]
+
+\[
+\mathbf{e}_{\text{noise}} = \hat{\mathbf{s}} - \mathbf{s}_{\text{target}},
+\]
+
+\begin{itemize}
+    \item \(\mathbf{s}\) is the reference signal,
+    \item \(\hat{\mathbf{s}}\) is the estimated signal.
+\end{itemize}
+
+To handle the issue of matching predicted sources to their corresponding references, Permutation Invariant Training (PIT) is employed.
+
+\textbf{Evaluation metrics.} We report the scale-invariant signal-to-noise ratio improvement (SI-SNRi)\cite{vincent2006performance} that indicate the  model's ability to reduce interference of the input audio. Additionally, we evaluate the output audio using widely used in source separation tasks metrics,  perceptual evaluation of speech quality (PESQ) and short-time objective intelligibility (STOI). 
+
+\section{Experimental Setup}\label{sec:experimental_setup}
+
+\subsection{\textbf{ConvTasNet}} The baseline model was exactly following the paper's\cite{luo2019convtasnet} best non-causal configuration. The initial learning rate was set to $2 \times 10^{-3}$. AdamW was used as an optimizer. All of the models were trained for 400 epochs with 500 steps per epoch. However, for all of them the early stopping was applied as soon as the loss reached the plateau. The baseline configuration required 100 epochs to train. More complex models required more time to converge.
+
+The application of the deep encoder and decoder was following the paper's\cite{kadioglu2020empirical} configuration with exponentially increasing (decreasing for decoder) dilation. This configuration was trained for 200 epochs.
+
+The embeddings of two videos were compressed and concatenated to form a combined one, and then were linearly interpolated to the audio representation. The features were then normalized and added to the encoded audio. The algorithm described in Appendix A. Incorporating visual features reduced the convergence time to around 140 epochs to achieve a plateau.
+
+Table I shows the performance of the systems with different parameters, from which we can conclude the following statements:
+
+\begin{itemize}
+	\item Decreasing the gradient norm has lead to a faster convergence of the model.
+	\item The utilization of the deep encoder-decoder architecture has increased the number of parameters but returned the better separation metrics. This configuration was chosen as a trade-off between performance and model size.
+	\item Simple audio-visual feature fusion has given a significant quality boost to the model's performance and to the convergence speed.
+	\item Training with an augmented dataset didn't increase the metric significantly.
+\end{itemize}
+\begin{table}[h!]
+\centering
+\caption{The effect of different configurations in Conv-TasNet.}
+\resizebox{\columnwidth}{!}{
+\begin{tabular}{|c|c|c|c|c|c|}
+\hline
+Epochs & Max. Grad. Norm & Deep Enc-Dec & Audio-Visual & Size (M) & SI-SNR (dB)$\uparrow$ \\ \hline
+100 & 8 & $\times$ & $\times$ & 5 & 6.21 \\ \hline
+200 & 5 & $\checkmark$ & $\times$ & 11.4 & 8.62 \\ \hline
+139 & 5 & $\checkmark$ & $\checkmark$ & 11.5 & \textbf{11.07} \\ \hline
+\end{tabular}
+}
+\end{table}
+
+
+\subsection{\textbf{DPRNN -- like architectures}}
+The baseline model for these experiments was DPRNN model \cite{luo2020dprnn} for audio-only setup. All architecture parameters were the same as in the paper. The one and only one architecture change is added skip-connection between Encoder and Decoder (for skipping dprnn blocks). The step size always was equal to chunk size / 2. The initial learning rate was
+set to $2 \times 10^{-3}$. AdamW was used as an optimizer and Cosine Annealing Scheduler. All
+of the models were trained up to 100 epochs with 625 steps (full dataset)
+per epoch. Firstly, we experimented with different kernel sizes for audio length compression. The best size among [2, 4, 7] was 7, because the loss function converged significantly better during first 4 epochs with this value and achieved about 9.67 SI-SNR on validation after 90 epochs. Moreover, there were two experiments with different chunk size and shape of audio latent dimension, but they didn't provide better values.
+\begin{table}[h!]
+\centering
+\caption{The effect of different configurations in base DPRNN}
+\begin{tabular}{|c|c|c|c|c|}
+\hline
+Kernel Size & Chunk Size & Latent Shape & Epochs & SI-SNR (dB)$\uparrow$ \\ \hline
+2 & 150 & 64 & 3 & -22 \\ \hline
+4 & 150 & 64 & 4 & -0.59 \\ \hline
+7 & 150 & 64 & 4 & 1.03 \\ \hline
+7 & 150 & 64 & 93 & \textbf{9.67} \\ \hline
+7 & 250 & 64 & 4 & -0.22 \\ \hline
+7 & 150 & 96 & 4 & 0.33  \\ \hline
+\end{tabular}
+\end{table}
+
+The small number of epochs means the training process was stopped to prevent wasting Compute hours, when the ablation result was obvious.
+
+After that we decided to change raw audio prediction to masking mix audio and tried Tanh-masking from DPTN paper \cite{chen2020dptnet}.
+
+\begin{table}[H]
+\centering
+\caption{The effect of masking DPTN mechanism in base DPRNN}
+\begin{tabular}{|c|c|c|}
+\hline
+Masking & Epochs & SI-SNR (dB)$\uparrow$ \\ \hline
+ $\times$ & 1 & -1.84 \\ \hline
+ $\times$ & 17 & \textbf{5.17} \\ \hline
+ $\checkmark$ & 1 &  0.57 \\ \hline
+ $\checkmark$ & 17 &  4.24 \\ \hline
+\end{tabular}
+\end{table}
+ 
+ As shown in Table III despite pretty good initial metrics after 1 epoch the masking mechanism works worse for this model after several epochs.
+
+\subsection{\textbf{DPTN -- like architectures}}
+The success and simplicity of DPTN model forced us to try it. The architecture parameters were as same as in the paper. To make experiments consistent we chose chunk size and kernel size equal to DPRNN experimetns, also the optimizer and LR were left the same, but we applied gradient clipping in transformer model for preventing gradient explosion. This approach won't affect DPRNN training due to small gradient norm during most part of process.
+
+The ablation of DPTN masking mechanism in previous stage stimulated to try raw audio prediction instead of paper's method.
+As shown in Table IV DPTN is much better than DPRNN and the raw wav prediction is preferably. The number of epochs was 93 (plateau) for all experiments.
+
+\begin{table}[H]
+\centering
+\caption{DPTN vs DPRNN}
+\begin{tabular}{|c|c|c|c|c|c|}
+\hline
+Model &Masking & Max Grad Norm & Model Size (M) & SI-SNR (dB)$\uparrow$ \\ \hline
+ DPRNN & $ \times$ & $\infty$ & 2.6 & 9.67 \\ \hline
+ DPTN & $ \checkmark $ & 10 & 2.8 & 10.43 \\ \hline
+ DPTN & $ \times $ & 10 & 2.8 & \textbf{11.45} \\ \hline
+\end{tabular}
+\end{table}
+
+The audio-visual configuration was as same as in ConvTasNet experiments. Also for better converged we used gating mechanism for fusing audio and visual encodings. The gated fusion algorithm is presented in Appendix A.
+
+\begin{table}[H]
+\centering
+\caption{The effect of visual features in DPTN}
+\begin{tabular}{|c|c|c|c|c|c|}
+\hline
+Fusion type & Epochs (plateau) & Model Size (M) & SI-SNR (dB)$\uparrow$ \\ \hline
+ w/o visual & 93 & 2.8 & 11.45 \\ \hline
+ Identity & 81 & 4.4 & 13.90 \\ \hline
+ Scalar & 81 & 4.4 & 14.03 \\ \hline
+ Tanh scalar & 81 & 4.4 & \textbf{14.15} \\ \hline
+\end{tabular}
+\end{table}
+
+In Table V you may see that gate fusion is slightly better than raw addition operation and visual features are extremely enhance model quality.
+
+\subsection{\textbf{RTFS-Net}}
+Another architecture that we implemented was RTFS-Net. The lightest model from the article (link), RTFS-Net-4, was used, resulting in a 0.8M parameters model. Although RTFS-Net-6 and other models have the same size (in number of parameters), they were not trained due to high memory demands of the TDANet (link) architecture which is used in audio and video processing. Training was performed with no more than 200 epochs, but early stopping was applied when the loss reached plateau. AdamW with learning rate equal to $10^{-3}$ was chosen as the optimizer and OneCycleLR (link) as the scheduler. The maximum gradient norm was set to 8.
+
+Following the paper's encoder architecture, we employed raw complex-valued STFT as audio encoder with Fourier transform size 256 and hop length 128. As a video encoder, we used a pretrained ResNet18 MS-TCN model (link) with 3D convolutions to extract 512-dimensional embeddings of the lip movements of speakers.
+
+In contrast to the original paper, our network was trained to extract both speakers from the audio, i.e. the output of the network consisted of two clean audio samples. Instead of SRU, we used a 4-layer bidirectional LSTM.
+
+Table VI presents training results for RTFS-Net.
+\begin{table}[h!]
+\centering
+\caption{RTFS-Net training results.}
+\resizebox{\columnwidth}{!}{
+\begin{tabular}{|c|c|c|c|c|}
+\hline
+R & Max. Grad. Norm & Size (M) & Video Embedding Size & SI-SNR (dB)$\uparrow$ \\ \hline
+4 & 8 & 0.827 & 512 & \textbf{7.65} \\ \hline
+\end{tabular}
+}
+\end{table}
+
+\subsection{VoiceFilter}
+We have tried to adapt the audio-only VoiceFilter (link) architecture to make it an audio-visual model by substituing the d-vector with a 1024-dimensional 
+\section{Results}\label{sec:results}
+We have tried many Blind Speech Separation models and provided relevant ablation studies. We also experimented with visual features and got significant boost using it. Unexpectedly predicting masks instead of raw audio performs noticeably worse, than the validation loss goes out to the plateau. The best model is DPTN, which was expanded for using visual information and its final results are presented in Table VII.
+\begin{table}[H]
+\centering
+\caption{Final best model AV-DPTN results on validation split}
+\resizebox{\columnwidth}{!}{
+\begin{tabular}{|c|c|c|c|c|c|c|}
+\hline
+Extracted & SI-SNR$\uparrow$ &SI-SNRi$\uparrow$ & PESQ$\uparrow$ & STOi$\uparrow$ & Model Size (M) & GFLOps\\ \hline
+$\times$& \multirow{2}{*}{14.159}&\multirow{2}{*}{14.161} & \multirow{2}{*}{2.46} & \multirow{2}{*}{0.93} & 40.8 & 108.5 \\ \cline{1-1} \cline{6-7} 
+$\checkmark$& & &  & & 4.4 & 51.4 \\ \hline
+\end{tabular}
+}
+\end{table}
+
+`Extracted` means the video embeddings were previously extracted, otherwise SS model inference includes Video model inference.
+
+\section{Conclusion}\label{sec:conclusion}
+In this work, we conducted experiments with models for separating audio in a two-voice mixture. In addition, the models were adapted to incorporate an additional video input, and an approach for fusing audio and video features was developed. We hope that this work provides valuable insights into the application of speech separation.
+
+\section{Acknowledgements}\label{sec:acknowledgements}
+This work is a part of the Deep Learning for Audio course at HSE university. 
+
+
+% these commands will create "References" title of the Section, there is no need to use `section` command
+\bibliographystyle{IEEEtran}
+\bibliography{literature}
+
+\onecolumn
+\appendix
+
+
+\subsection{Gated Fusion Algorithm}\label{sec:fusion}
+\begin{lstlisting}[mathescape=true]
+Input:
+    Audio embedding A $\in \mathbb{R}^{T_{\text{audio}}, d_{\text{audio}}}$
+    Visual embedding V $\in \mathbb{R}^{2, T_{\text{visual}}, d_{\text{visual}}}$
+
+Step 1: Compress visual embedding dimension
+    V $\leftarrow$ Linear(V)
+    V $\in \mathbb{R}^{2, T_{\text{visual}}, d_{\text{audio}} / 2}$
+
+Step 2: Concatenate visual embeddings over hidden dimension
+    V $\leftarrow$ concat(V[0, ...], V[1, ...])
+    V $\in \mathbb{R}^{T_{\text{visual}}, d_{\text{audio}}}$
+ 
+Step 3: Linear interpolation over time dimension
+    V $\leftarrow$ Linear interpolation(V)
+    V $\in \mathbb{R}^{T_{\text{audio}}, d_{\text{audio}}}$
+
+Step 4: Fuse audio and visual features with gating mechanism
+    AV $\leftarrow$ A + gate_function(V)
+
+Output: Feature embedding AV for SS model
+\end{lstlisting}
+
+The gate function may be one of 
+\begin{itemize}
+    \item Identity (used in TasNet and DPTN experiments)
+    \item Learnable scalar (used in DPTN experiments)
+    \item Tanh postprocessed learnable scalar (used in DPTN experiments)
+\end{itemize}
+
+
+\end{document}

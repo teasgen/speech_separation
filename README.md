@@ -2,7 +2,7 @@
 
 # VAT-SS: Investigation of Speech Separation Models Including Video Source
 
-[\[🔥 VAT-SS Report\]](TODO)
+[\[🔥 VAT-SS Report\]](docs/paper.pdf)
 
 </div>
 
