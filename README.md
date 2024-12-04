@@ -83,9 +83,9 @@ wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1egOS
 tar xvf ./model.tar
 ```
 
-To run inference and calculate metrics, provide custom dataset, change paths to WAVs and video embeddings in `src/configs/datasets/ss_dataset_val.yaml` and run:
+To run inference and calculate metrics, provide custom dataset, change paths to WAVs and video embeddings in cmd arguments `datasets.val.audio_dir`, `datasets.val.embedding_dir` and run:
    ```bash
-   python3 inference.py -cn inference_dptn_av.yaml dataloader.batch_size=32 inferencer.from_pretrained=model_best.pth
+   python3 inference.py -cn inference_dptn_av.yaml dataloader.batch_size=32 inferencer.from_pretrained=model_best.pth datasets.val.audio_dir=<PATH_TO_WAVS> datasets.val.embedding_dir=<PATH_TO_EMBEDDINGS>
    ```
    Set dataloader.batch_size not more than len(dataset)
 
