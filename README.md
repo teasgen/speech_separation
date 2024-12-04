@@ -83,7 +83,7 @@ wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1egOS
 tar xvf ./model.tar
 ```
 
-To run inference and calculate metrics, provide custom dataset and run:
+To run inference and calculate metrics, provide custom dataset, change paths to WAVs and video embeddings in `src/configs/datasets/ss_dataset_val.yaml` and run:
    ```bash
    python3 inference.py -cn inference_dptn_av.yaml dataloader.batch_size=32 inferencer.from_pretrained=model_best.pth
    ```
