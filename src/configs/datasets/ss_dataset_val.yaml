@@ -1,6 +1,6 @@
 val:
   _target_: src.datasets.SSDataset
   part: "val"
-  audio_dir: /home/teasgen/dla/speech_separation/dla_dataset/audio
-  embedding_dir: /home/teasgen/dla/speech_separation/dla_dataset/embeddings
+  audio_dir: dla_dataset/audio
+  embedding_dir: dla_dataset/embeddings
   instance_transforms: ${transforms.instance_transforms.inference}
