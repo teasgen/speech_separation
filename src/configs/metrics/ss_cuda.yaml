@@ -3,6 +3,6 @@ train: # metrics that are calculated during training
     name: "SISNRMetric"
     device: cuda:0
 inference: # metrics that are calculated during inference (eval)
-  - _target_: src.metrics.SISNRMetric
-    name: "SISNRMetric"
+  - _target_: src.metrics.SISNRiMetric
+    name: "SISNRiMetric"
     device: cuda:0
