@@ -7,7 +7,7 @@ from src.model.deepavconvtasnet import DeepAVConvTasNet
 from src.model.dprnn import DPRNNEncDec
 from src.model.dptn import DPTNEncDec
 from src.model.dptn_wav import DPTNWavEncDec, DPTNAVWavEncDec
-from src.model.rtfsnet import RTFSNetwork
+# from src.model.rtfsnet import RTFSNetwork
 
 __all__ = [
     "BaselineModel",
@@ -20,5 +20,5 @@ __all__ = [
     "DPTNEncDec",
     "DPTNWavEncDec",
     "DPTNAVWavEncDec",
-    "RTFSNetwork"
+    # "RTFSNetwork"
 ]

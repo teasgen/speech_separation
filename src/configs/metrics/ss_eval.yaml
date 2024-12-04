@@ -1,0 +1,4 @@
+inference:
+  - _target_: src.metrics.SISNRiMetric
+    name: "SISNRiMetric"
+    device: cuda:0
