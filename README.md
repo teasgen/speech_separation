@@ -77,6 +77,8 @@ Moreover, training logs are available in WandBs
 - VoiceFilter & RTFS https://wandb.ai/aapetukhov-new-economic-school/ss?nw=nwuseraapetukhov
 
 ## How To Evaluate
+Read How To Extract Video Embeddings section before
+
 All generated texts will be saved into `data/saved/inferenced/<dataset part>` directory with corresponing names. Download SOTA pretrained model using
 ```bash
 wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1egOSgh3qaADxWpxd379nmhLrfZ-5xYEf' -O ./model.tar
