@@ -1,5 +1,6 @@
 import torch
 from tqdm.auto import tqdm
+from pathlib import Path
 
 from src.metrics.tracker import MetricTracker
 from src.trainer.base_trainer import BaseTrainer
@@ -157,11 +158,10 @@ class Inferencer(BaseTrainer):
                     "s1_pred": s1_pred,
                     "s2_pred": s2_pred,
                 }
-
                 if self.save_path is not None:
                     torch.save(
                         output,
-                        self.save_path / part / f"output_{output_id}.pth",
+                        self.save_path / part / f"{Path(batch['audio_path'][i]).stem}.pth",
                     )
 
             return batch
