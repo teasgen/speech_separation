@@ -94,6 +94,15 @@ To run inference and calculate metrics, provide custom dataset, change paths to 
    In case you don't have GT please change `device_tensors` in `inference_dptn_av.yaml` config to `device_tensors: ["mix_spectrogram", "mix", "s1_embedding", "s2_embedding"]`, following that metrics won't be calculated and only predictions will be saved.
    Or via cmd arguments: `inferencer.device_tensors="["mix_spectrogram","mix","s1_embedding","s2_embedding"]"`
 
+   Use following command to run SiSNRi calculation on GT and predicted directories
+   ```bash
+   export PYTHONPATH=./
+   python3 src/utils/eval_si_snri.py --predicts-dir <PATH_TO_PREDS> --gt-dir <PATH_TO_GTS>
+   ```
+   <PATH_TO_PREDS> is directory containing predicts file in .pth format
+   <PATH_TO_GTS> is directory containing s1, s2, mix dirs
+
+
 To evaluate the computational performance of the model, run:
    ```bash
    python3 profiler.py
