@@ -92,7 +92,7 @@ To run inference and calculate metrics, provide custom dataset, change paths to 
    Set dataloader.batch_size not more than len(dataset)
 
    In case you don't have GT please change `device_tensors` in `inference_dptn_av.yaml` config to `device_tensors: ["mix_spectrogram", "mix", "s1_embedding", "s2_embedding"]`, following that metrics won't be calculated and only predictions will be saved.
-   Or via cmd arguments: `datasets.val.embedding_dir=null inferencer.device_tensors="["mix_spectrogram","mix","s1_embedding","s2_embedding"]"`
+   Or via cmd arguments: `inferencer.device_tensors="["mix_spectrogram","mix","s1_embedding","s2_embedding"]"`
 
 To evaluate the computational performance of the model, run:
    ```bash
