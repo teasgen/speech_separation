@@ -143,7 +143,7 @@ class Inferencer(BaseTrainer):
                     if self.save_path is not None:
                         torch.save(
                             output,
-                            self.save_path / part / f"output_{output_id}.pth",
+                            self.save_path / part / f"{Path(batch['audio_path'][i]).stem}.pth",
                         )
 
                 return batch
