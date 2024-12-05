@@ -95,6 +95,16 @@ To evaluate the computational performance of the model, run:
    ```bash
    python3 profiler.py
    ```
+
+Best model DPTN-AV-repack profiler results in Kaggle enviroment with P100 GPU:
+| Metric                | Value               |
+|-----------------------|---------------------|
+| GFLOPs                | 108.556458241       |
+| CUDA Memory           | 14378.582016        |
+| Inference Time (Mean) | 0.09988968074321747 |
+| Inference Time (Std)  | 0.04486224800348282 |
+| Number of Parameters  | 40809590            |
+
 ## Credits
 
 This repository is based on a [PyTorch Project Template](https://github.com/Blinorot/pytorch_project_template).
