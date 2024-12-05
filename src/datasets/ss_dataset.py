@@ -40,6 +40,8 @@ class SSDataset(BaseDataset):
         else:
             self.contains_embedding = False
 
+        if part is None:
+            part = "custom"
         index = self._get_or_load_index(part)
 
         super().__init__(index, *args, **kwargs)
@@ -57,7 +59,10 @@ class SSDataset(BaseDataset):
 
     def _create_index(self, part):
         index = []
-        split_dir = self._audio_dir / part
+        if part == "custom":
+            split_dir = self._audio_dir
+        else:
+            split_dir = self._audio_dir / part
         mix_split_dir = split_dir / "mix"
 
         for wavname in os.listdir(mix_split_dir):
