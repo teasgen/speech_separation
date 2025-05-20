@@ -86,7 +86,7 @@ class DPRNNUnit(nn.Module):
             x = x.transpose(-1, -2).contiguous()
 
         return x
-    
+
 
 # normalize by channels
 class ChanNorm(nn.Module):
